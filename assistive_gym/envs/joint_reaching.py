@@ -57,7 +57,7 @@ class JointReachingEnv(AssistiveEnv):
             reward_force_scratch = 5
             self.task_success = 1
 
-        if abs(reward_distance)<self.distance_threshold and self.tool_force_at_target<15: #0.03
+        if abs(reward_distance)<self.distance_threshold and self.tool_force_at_target<10: #0.03
             reward_force_scratch = 5
             self.task_success =+ 2
 
