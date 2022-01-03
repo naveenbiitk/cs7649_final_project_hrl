@@ -41,14 +41,14 @@ class PR2(Robot):
                                'bed_bathing': [-0.1, 0, 0],
                                'dressing': [1.7, 0.7, 0],
                                'arm_manipulation': [-0.3, 0.7, 0],
-                               'joint_reaching': [-1.5, 0.2, 0]}
+                               'joint_reaching': [0.1, 0.0, 0]}
         toc_ee_orient_rpy = {'scratch_itch': [0, 0, 0], # Initial end effector orientation
                              'feeding': [np.pi/2.0, 0, 0],
                              'drinking': [0, 0, 0],
                              'bed_bathing': [0, 0, 0],
                              'dressing': [[0, 0, np.pi], [0, 0, np.pi*3/2.0]],
                              'arm_manipulation': [0, 0, 0],
-                             'joint_reaching': [0.1, 0, 0]}
+                             'joint_reaching': [0, 0, 0]}
         wheelchair_mounted = False
 
         super(PR2, self).__init__(controllable_joints, right_arm_joint_indices, left_arm_joint_indices, wheel_joint_indices, right_end_effector, left_end_effector, right_gripper_indices, left_gripper_indices, gripper_pos, right_tool_joint, left_tool_joint, tool_pos_offset, tool_orient_offset, right_gripper_collision_indices, left_gripper_collision_indices, toc_base_pos_offset, toc_ee_orient_rpy, wheelchair_mounted, half_range=False)
@@ -70,6 +70,8 @@ class PR2(Robot):
     def reset_joints(self):
         super(PR2, self).reset_joints()
         # Position end effectors whith dual arm robots
-        self.set_joint_angles(self.right_arm_joint_indices, [0.02885033,  1.39207902, -0.348078,   -0.11367103, -0.07444258, -0.7447537, -0.38121931 ])
-        self.set_joint_angles(self.left_arm_joint_indices, [0.02885033,  1.39207902, -0.348078,   -0.11367103, -0.07444258, -0.7447537, -0.38121931])
-
+        self.set_joint_angles(self.right_arm_joint_indices, [-1.75, 1.25, -1.5, -0.5, -1, 0, -1])
+        #self.set_joint_angles(self.left_arm_joint_indices, [1.75, 1.25, 1.5, -0.5, 1, 0, 1])
+        #self.set_joint_angles(self.left_arm_joint_indices, [0,0,5,5,5,5,5])
+        #self.set_joint_angles(self.left_arm_joint_indices, [-1.65530063e-03, 4.92035523e-01, 3.89797325e+00,  7.11851665e-04,  1.00795554e+01, -1.32803318e+00,  5.20580637e+00])
+        self.set_joint_angles(self.left_arm_joint_indices, [-0.62773576,  0.77949666, -0.79763934, -0.8586363,  10.99570105, -0.14534027, 7.72589223])

@@ -184,7 +184,6 @@ class AssistiveEnv(gym.Env):
             self.last_sim_time = time.time()
         self.iteration += 1
         self.forces = []
-        #print(actions)
         actions = np.clip(actions, a_min=self.action_space.low, a_max=self.action_space.high)
         actions *= action_multiplier
         action_index = 0
@@ -275,7 +274,7 @@ class AssistiveEnv(gym.Env):
 
         return self.C_v*reward_velocity + self.C_f*reward_force_nontarget + self.C_hf*reward_high_target_forces + self.C_fd*reward_food_hit_human + self.C_fdv*reward_food_velocities + self.C_d*reward_dressing_force + self.C_p*reward_arm_manipulation_tool_pressures
 
-    def init_robot_pose(self, target_ee_pos, target_ee_orient, start_pos_orient, target_pos_orients, arm='right', tools=[], collision_objects=[], wheelchair_enabled=False, right_side=False, max_iterations=20):
+    def init_robot_pose(self, target_ee_pos, target_ee_orient, start_pos_orient, target_pos_orients, arm='right', tools=[], collision_objects=[], wheelchair_enabled=True, right_side=True, max_iterations=3):
         base_position = None
         if self.robot.skip_pose_optimization:
             return base_position
@@ -287,7 +286,8 @@ class AssistiveEnv(gym.Env):
                 pos[:2] += self.np_random.uniform(-0.1, 0.1, size=2)
                 orient = np.array(self.robot.toc_ee_orient_rpy[self.task])
                 if self.task != 'dressing':
-                    orient[2] += self.np_random.uniform(-np.deg2rad(30), np.deg2rad(30))
+                    #orient[2] += self.np_random.uniform(-np.deg2rad(30), np.deg2rad(30))  #setting the base same for joint reaching
+                    orient[2] += self.np_random.uniform(-np.deg2rad(0.5), np.deg2rad(0.5))
                 else:
                     orient = orient[0]
                 self.robot.set_base_pos_orient(pos, orient)

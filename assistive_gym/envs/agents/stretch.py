@@ -43,7 +43,7 @@ class Stretch(Robot):
                                'bed_bathing': [-1.1, -0.1, 0.09],
                                'dressing': [0.75, -0.4, 0.09],
                                'arm_manipulation': [-1.3, 0.1, 0.09],
-                               'joint_reaching': [-0.75, -0.1, 0.09]}
+                               'joint_reaching': [-0.85, -0.1, 0.09]}
         toc_ee_orient_rpy = {'scratch_itch': [0, 0, np.pi/2.0], # Initial end effector orientation
                              'feeding': [0, 0, np.pi/2.0],
                              'drinking': [0, 0, np.pi/2.0],
@@ -65,7 +65,7 @@ class Stretch(Robot):
         if task in ['bed_bathing', 'dressing']:
             self.set_joint_angles([3], [0.95+self.np_random.uniform(-0.1, 0.1)])
         else:
-            self.set_joint_angles([3], [0.75+self.np_random.uniform(-0.1, 0.1)])
+            self.set_joint_angles([3], [1.05+self.np_random.uniform(-0.05, 0.05)])
 
     def init(self, directory, id, np_random, fixed_base=False):
         # TODO: Inertia from urdf file is not correct.

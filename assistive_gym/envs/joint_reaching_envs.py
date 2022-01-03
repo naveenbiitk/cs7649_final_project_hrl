@@ -8,7 +8,7 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.tune.registry import register_env
 
 robot_arm='left'
-human_controllable_joint_indices = human.right_arm_joints+human.right_leg_joints
+human_controllable_joint_indices = human.right_arm_joints
 
 
 class JointReachingStretchEnv(JointReachingEnv):
@@ -22,9 +22,10 @@ register_env('assistive_gym:JointReachingStretchHuman-v1', lambda config: JointR
 
 class JointReachingPR2Env(JointReachingEnv):
 	def __init__(self):
-		super(JointReachingPR2Env, self).__init__(robot=PR2('wheel_'+robot_arm), human=Human(human_controllable_joint_indices, controllable=False))
+		super(JointReachingPR2Env, self).__init__(robot=PR2(robot_arm), human=Human(human_controllable_joint_indices, controllable=False))
 		
 class JointReachingPR2HumanEnv(JointReachingEnv, MultiAgentEnv):
     def __init__(self):
-        super(JointReachingPR2HumanEnv, self).__init__(robot=PR2('wheel_'+robot_arm), human=Human(human_controllable_joint_indices, controllable=True))
+        super(JointReachingPR2HumanEnv, self).__init__(robot=PR2(robot_arm), human=Human(human_controllable_joint_indices, controllable=True))
 register_env('assistive_gym:JointReachingPR2Human-v1', lambda config: JointReachingPR2HumanEnv())
+
