@@ -15,6 +15,7 @@ def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
         config['sgd_minibatch_size'] = 128
         config['lambda'] = 0.95
         config['model']['fcnet_hiddens'] = [100, 100]
+        config['lr'] = 1e-5 # default = 5e-5
     elif algo == 'sac':
         # NOTE: pip3 install tensorflow_probability
         config = sac.DEFAULT_CONFIG.copy()
@@ -184,6 +185,8 @@ def evaluate_policy(env_name, algo, policy_path, n_episodes=100, coop=False, see
     # print('Task Successes:', task_successes)
     print('Task Success Mean:', np.mean(task_successes))
     print('Task Success Std:', np.std(task_successes))
+    print('Task_successes total', np.sum(task_successes))
+    print('Task_successes total', task_successes)
     sys.stdout.flush()
 
 
