@@ -31,3 +31,14 @@ register(
     max_episode_steps=200,
 )
 
+register(
+    id='JointReachingStretch-v1', 
+    entry_point='assistive_gym.envs:JointReachingStretchEnv',
+    max_episode_steps=200,
+)
+
+register(
+    id='JointReachingPR2-v1', 
+    entry_point='assistive_gym.envs:JointReachingPR2Env',
+    max_episode_steps=200,
+)

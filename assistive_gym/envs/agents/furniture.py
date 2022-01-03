@@ -29,6 +29,8 @@ class Furniture(Agent):
             super(Furniture, self).init(furniture, id, np_random)
         elif furniture_type == 'table':
             furniture = p.loadURDF(os.path.join(directory, 'table', 'table_tall.urdf'), basePosition=[0.25, -1.0, 0], baseOrientation=[0, 0, 0, 1], physicsClientId=id)
+        elif furniture_type == 'chair':
+            furniture = p.loadURDF(os.path.join(directory, 'chair', 'chair.urdf'), basePosition=[0, 0, 0], baseOrientation=[0, 0, 0, 1], physicsClientId=id)
         elif furniture_type == 'bowl':
             bowl_pos = np.array([-0.15, -0.65, 0.75]) + np.array([np_random.uniform(-0.05, 0.05), np_random.uniform(-0.05, 0.05), 0])
             furniture = p.loadURDF(os.path.join(directory, 'dinnerware', 'bowl.urdf'), basePosition=bowl_pos, baseOrientation=[0, 0, 0, 1], physicsClientId=id)

@@ -21,15 +21,17 @@ def viewer(env_name):
         env.render()
         observation = env.reset()
         action = sample_action(env, coop)
-        if coop:
-            print('Robot observation size:', np.shape(observation['robot']), 'Human observation size:', np.shape(observation['human']), 'Robot action size:', np.shape(action['robot']), 'Human action size:', np.shape(action['human']))
-        else:
-            print('Observation size:', np.shape(observation), 'Action size:', np.shape(action))
+        # if coop:
+        #     print('Robot observation size:', np.shape(observation['robot']), 'Human observation size:', np.shape(observation['human']), 'Robot action size:', np.shape(action['robot']), 'Human action size:', np.shape(action['human']))
+        # else:
+        #     print('Observation size:', np.shape(observation), 'Action size:', np.shape(action))
 
         while not done:
             observation, reward, done, info = env.step(sample_action(env, coop))
             if coop:
-                done = done['__all__']
+                #print(done)
+                done = 0
+                #done = done['__all__']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Assistive Gym Environment Viewer')

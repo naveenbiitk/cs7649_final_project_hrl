@@ -5,7 +5,7 @@ from gym import spaces
 from gym.utils import seeding
 from screeninfo import get_monitors
 import pybullet as p
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 
 from .util import Util
 from .human_creation import HumanCreation
@@ -184,6 +184,7 @@ class AssistiveEnv(gym.Env):
             self.last_sim_time = time.time()
         self.iteration += 1
         self.forces = []
+        #print(actions)
         actions = np.clip(actions, a_min=self.action_space.low, a_max=self.action_space.high)
         actions *= action_multiplier
         action_index = 0
@@ -191,6 +192,7 @@ class AssistiveEnv(gym.Env):
             needs_action = not isinstance(agent, Human) or agent.controllable
             if needs_action:
                 agent_action_len = len(agent.controllable_joint_indices)
+                #print(actions)
                 action = np.copy(actions[action_index:action_index+agent_action_len])
                 action_index += agent_action_len
                 if isinstance(agent, Robot):
@@ -273,7 +275,7 @@ class AssistiveEnv(gym.Env):
 
         return self.C_v*reward_velocity + self.C_f*reward_force_nontarget + self.C_hf*reward_high_target_forces + self.C_fd*reward_food_hit_human + self.C_fdv*reward_food_velocities + self.C_d*reward_dressing_force + self.C_p*reward_arm_manipulation_tool_pressures
 
-    def init_robot_pose(self, target_ee_pos, target_ee_orient, start_pos_orient, target_pos_orients, arm='right', tools=[], collision_objects=[], wheelchair_enabled=True, right_side=True, max_iterations=3):
+    def init_robot_pose(self, target_ee_pos, target_ee_orient, start_pos_orient, target_pos_orients, arm='right', tools=[], collision_objects=[], wheelchair_enabled=False, right_side=False, max_iterations=20):
         base_position = None
         if self.robot.skip_pose_optimization:
             return base_position

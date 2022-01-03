@@ -19,7 +19,7 @@ class SMPLXTestingEnv(AssistiveEnv):
 
     def reset(self):
         super(SMPLXTestingEnv, self).reset()
-        self.build_assistive_env(furniture_type='wheelchair2')
+        self.build_assistive_env(furniture_type='wheelchair',human_impairment='none',fixed_human_base=False)
         self.furniture.set_on_ground()
 
         self.human_mesh = HumanMesh()
@@ -39,7 +39,9 @@ class SMPLXTestingEnv(AssistiveEnv):
 
         # self.human_mesh.set_base_pos_orient([0, -0.05, 1.0], [0, 0, 0, 1])
         chair_seat_position = np.array([0, 0.05, 0.6])
-        self.human_mesh.set_base_pos_orient(chair_seat_position - self.human_mesh.get_vertex_positions(self.human_mesh.bottom_index), [0, 0, 0, 1])
+        self.human_mesh.set_base_pos_orient(0.5+chair_seat_position - self.human_mesh.get_vertex_positions(self.human_mesh.bottom_index), [0, 0, 0, 1])
+        # print('Printing pose ',chair_seat_position - self.human_mesh.get_vertex_positions(self.human_mesh.bottom_index))
+        # Printing pose  [ 0.00000000e+00  0.00000000e+00 -1.11022302e-16]
         pos, orient = self.human_mesh.get_base_pos_orient()
 
         # spheres = self.create_spheres(radius=0.02, mass=0, batch_positions=self.human_mesh.get_joint_positions(list(range(22))), visual=True, collision=False, rgba=[0, 1, 0, 1])
@@ -55,9 +57,9 @@ class SMPLXTestingEnv(AssistiveEnv):
 
         # self.point = self.create_sphere(radius=0.01, mass=0.0, pos=[0, 0, 1.0], visual=True, collision=False, rgba=[0, 1, 1, 1])
 
-        p.setGravity(0, 0, 0, physicsClientId=self.id)
+        p.setGravity(0, 0, -9.81, physicsClientId=self.id)
 
-        # p.resetDebugVisualizerCamera(cameraDistance=1.6, cameraYaw=0, cameraPitch=-30, cameraTargetPosition=[0, 0, 1.0], physicsClientId=self.id)
+        p.resetDebugVisualizerCamera(cameraDistance=1.6, cameraYaw=0, cameraPitch=-30, cameraTargetPosition=[0, 0, 1.0], physicsClientId=self.id)
 
         # Enable rendering
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1, physicsClientId=self.id)
@@ -72,8 +74,9 @@ class SMPLXTestingEnv(AssistiveEnv):
         #     for j in range(y):
         #         batch_positions.append(np.array([i*2*radius-x*radius, j*2*radius-y*radius, 0.5]))
         # spheres = self.create_spheres(radius=radius, mass=mass, batch_positions=batch_positions, visual=False, collision=True)
-        # p.setGravity(0, 0, -0.81, physicsClientId=self.id)
+        p.setGravity(0, 0, -0.81, physicsClientId=self.id)
 
-        self.init_env_variables()
+        #self.init_env_variables()
+        print('--------------------------Done--------------------')
         return self._get_obs()
 
