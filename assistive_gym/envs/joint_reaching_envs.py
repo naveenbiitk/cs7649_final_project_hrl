@@ -8,7 +8,7 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.tune.registry import register_env
 
 robot_arm='left'
-human_controllable_joint_indices = human.right_arm_joints
+human_controllable_joint_indices = human.right_arm_joints+human.right_leg_joints
 
 
 class JointReachingStretchEnv(JointReachingEnv):

@@ -24,11 +24,13 @@ class Stretch(Robot):
                        'bed_bathing': [0.1, 0.1],
                        'dressing': [0, 0],
                        'arm_manipulation': [0.1, 0.1],
+                       'object_handover': [0.1, 0.1], 
                        'joint_reaching': [0.1, 0.1]}
         tool_pos_offset = {'scratch_itch': [0, 0, 0], # Position offset between tool and robot tool joint
                            'feeding': [0.1, 0, -0.02],
                            'drinking': [0, 0, -0.05],
                            'bed_bathing': [0, 0, 0],
+                           'object_handover': [0, 0, 0], 
                            'arm_manipulation': [0.11, 0, -0.07],
                            'joint_reaching': [0, 0, 0]}
         tool_orient_offset = {'scratch_itch': [0, 0, 0], # RPY orientation offset between tool and robot tool joint
@@ -36,6 +38,7 @@ class Stretch(Robot):
                               'drinking': [np.pi/2.0, 0, 0],
                               'bed_bathing': [0, 0, 0],
                               'arm_manipulation': [np.pi/2.0, 0, 0],
+                              'object_handover': [0, 0, 0],
                                'joint_reaching': [0, 0, 0] }
         toc_base_pos_offset = {'scratch_itch': [-1.0, -0.1, 0.09], # Robot base offset before TOC base pose optimization
                                'feeding': [-0.9, -0.3, 0.09],
@@ -43,6 +46,7 @@ class Stretch(Robot):
                                'bed_bathing': [-1.1, -0.1, 0.09],
                                'dressing': [0.75, -0.4, 0.09],
                                'arm_manipulation': [-1.3, 0.1, 0.09],
+                               'object_handover': [-0.85, -0.1, 0.09], 
                                'joint_reaching': [-0.85, -0.1, 0.09]}
         toc_ee_orient_rpy = {'scratch_itch': [0, 0, np.pi/2.0], # Initial end effector orientation
                              'feeding': [0, 0, np.pi/2.0],
@@ -50,6 +54,7 @@ class Stretch(Robot):
                              'bed_bathing': [0, 0, np.pi/2.0],
                              'dressing': [[0, 0, -np.pi/2.0]],
                              'arm_manipulation': [0, 0, np.pi/2.0],
+                             'object_handover': [0, 0, np.pi/2.0], 
                              'joint_reaching': [0, 0, np.pi/2.0]}
         wheelchair_mounted = False
 

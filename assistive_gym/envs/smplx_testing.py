@@ -39,7 +39,7 @@ class SMPLXTestingEnv(AssistiveEnv):
 
         # self.human_mesh.set_base_pos_orient([0, -0.05, 1.0], [0, 0, 0, 1])
         chair_seat_position = np.array([0, 0.05, 0.6])
-        self.human_mesh.set_base_pos_orient(0.5+chair_seat_position - self.human_mesh.get_vertex_positions(self.human_mesh.bottom_index), [0, 0, 0, 1])
+        self.human_mesh.set_base_pos_orient(chair_seat_position - self.human_mesh.get_vertex_positions(self.human_mesh.bottom_index), [0, 0, 0, 1])
         # print('Printing pose ',chair_seat_position - self.human_mesh.get_vertex_positions(self.human_mesh.bottom_index))
         # Printing pose  [ 0.00000000e+00  0.00000000e+00 -1.11022302e-16]
         pos, orient = self.human_mesh.get_base_pos_orient()
