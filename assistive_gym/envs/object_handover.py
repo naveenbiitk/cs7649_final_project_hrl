@@ -33,7 +33,7 @@ class ObjectHandoverEnv(AssistiveEnv):
         end_effector_velocity = np.linalg.norm(self.robot.get_velocity(self.robot.left_end_effector))
         preferences_score = self.human_preferences(end_effector_velocity=end_effector_velocity, total_force_on_human=self.total_force_on_human, tool_force_at_target=self.tool_force_at_target)
 
-        tool_pos = self.tool.get_pos_orient(1)[0]
+        tool_pos = self.tool.get_pos_orient(0)[0]
         reward_distance = -np.linalg.norm(self.target_pos - tool_pos) #Penalize distances away from target
         reward_action = -np.linalg.norm(action) #Penalize actions
         reward_force_scratch = 0.0 #Reward force near the target
@@ -43,6 +43,7 @@ class ObjectHandoverEnv(AssistiveEnv):
 
         #Discourage movement only for stretch not for pr2
         self.robot_current_pose,_orient_ = self.robot.get_pos_orient(self.robot.base)
+
         reward_movement = -3*np.linalg.norm(self.robot_current_pose-self.robot_old_pose)
         
         #only for pr2 not stretch
@@ -70,6 +71,17 @@ class ObjectHandoverEnv(AssistiveEnv):
         # if self.total_force_on_human>10:
         #     print('Force on human: ',self.total_force_on_human)
 
+        ######### Generate line 
+        p.removeAllUserDebugItems()
+        wrist_pos,wrist_orient = self.human.get_pos_orient(self.human.right_wrist)
+        self.generate_line(wrist_pos,wrist_orient)
+
+        tool_pos, tool_orient = self.tool.get_pos_orient(0)
+        #tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient) useless command
+        self.generate_line(tool_pos,tool_orient)
+
+
+        ##########
 
         reward = reward_shake + reward_movement +  self.config('distance_weight')*reward_distance + self.config('action_weight')*reward_action + self.config('scratch_reward_weight')*reward_force_scratch + preferences_score
 
@@ -95,6 +107,29 @@ class ObjectHandoverEnv(AssistiveEnv):
 
 
 
+
+    def generate_line(self, pos, orient):
+        
+        mat = p.getMatrixFromQuaternion(orient)
+        dir0 = [mat[0], mat[3], mat[6]]
+        dir1 = [mat[1], mat[4], mat[7]]
+        dir2 = [mat[2], mat[5], mat[8]]
+        lineLen = 0.1
+        dir = [-mat[2], -mat[5], -mat[8]]
+
+        to = [pos[0] + lineLen * dir[0], pos[1] + lineLen * dir[1], pos[2] + lineLen * dir[2]]
+        toX = [pos[0] + lineLen * dir0[0], pos[1] + lineLen * dir0[1], pos[2] + lineLen * dir0[2]]
+        toY = [pos[0] + lineLen * dir1[0], pos[1] + lineLen * dir1[1], pos[2] + lineLen * dir1[2]]
+        toZ = [pos[0] + lineLen * dir2[0], pos[1] + lineLen * dir2[1], pos[2] + lineLen * dir2[2]]
+        p.addUserDebugLine(pos, toX, [1, 0, 0], 5)
+        p.addUserDebugLine(pos, toY, [0, 1, 0], 5)
+        p.addUserDebugLine(pos, toZ, [0, 0, 1], 5)
+
+        p.addUserDebugLine(pos, to, [0.5, 0.5, 0.], 1, 3)
+
+
+
+
     def get_total_force(self):
         total_force_on_human = np.sum(self.robot.get_contact_points(self.human)[-1])
         tool_force = np.sum(self.tool.get_contact_points()[-1])
@@ -111,7 +146,7 @@ class ObjectHandoverEnv(AssistiveEnv):
 
 
     def _get_obs(self, agent=None):
-        tool_pos, tool_orient = self.tool.get_pos_orient(1)
+        tool_pos, tool_orient = self.tool.get_pos_orient(0)
         tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient)
         robot_joint_angles = self.robot.get_joint_angles(self.robot.controllable_joint_indices)
         # Fix joint angles to be in [-pi, pi]
@@ -169,6 +204,17 @@ class ObjectHandoverEnv(AssistiveEnv):
         joints_positions += [(self.human.j_head_x, self.np_random.uniform(-30, 30)), (self.human.j_head_y, self.np_random.uniform(-30, 30)), (self.human.j_head_z, self.np_random.uniform(-30, 30))]
         self.human.setup_joints(joints_positions, use_static_joints=True, reactive_force=None)
 
+        chest_pos, chest_orient = self.human.get_pos_orient(self.human.stomach)
+        ctarget_pos, ctarget_orient = p.multiplyTransforms(chest_pos, chest_orient, [0,0,0], [0, 0, 0, 1], physicsClientId=self.id)
+
+
+
+        self.create_sphere(radius=0.4, mass=0.0, pos=ctarget_pos, visual=True, collision=False, rgba=[1, 0, 0, 0.3])
+
+
+
+
+        
         self.generate_target()
 
         p.resetDebugVisualizerCamera(cameraDistance=1.10, cameraYaw=55, cameraPitch=-45, cameraTargetPosition=[-0.2, 0, 0.75], physicsClientId=self.id)
@@ -187,11 +233,9 @@ class ObjectHandoverEnv(AssistiveEnv):
         self.human.set_gravity(0, 0, 0)
         self.tool.set_gravity(0, 0, 0)
 
-
         p.setPhysicsEngineParameter(numSubSteps=4, numSolverIterations=10, physicsClientId=self.id)
 
-
-                # Enable rendering
+        # Enable rendering
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1, physicsClientId=self.id)
 
         self.init_env_variables()
