@@ -135,3 +135,18 @@ class BaseEnv:
             spheres.append(sphere)
         return spheres
 
+
+    # def generate_cone(self,mass):
+    #     """generates a cone shaped object based upon the supplied .obj file, places at start position and orientation, sets dynamic properties provided by gp_minimise
+    #        The cone is set  with a mass for plastic in experiment 7 and wood for experiment 8.  
+    #     """
+    #     self._cube_mass = mass
+    #     self._visualShapeId = -1
+    #     self._cubeStartPos = [0.6,0.00,0.0375]
+    #     self._cubeStartOrientation = getQuaternionFromEuler([0.0,1.92957,0.0])
+    #     createMultiBody(0,0)
+    #     #createvisualShape... 
+    #     self._colCubeId = createCollisionShape(GEOM_MESH,fileName='kinova_description/Shapes/Cone.obj')
+
+    #     self._objectUid = createMultiBody(self._cube_mass,self._colCubeId,self._visualShapeId,self._cubeStartPos,self._cubeStartOrientation)
+

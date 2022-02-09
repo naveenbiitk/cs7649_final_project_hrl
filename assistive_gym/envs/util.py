@@ -2,6 +2,99 @@ import os, sys
 import numpy as np
 import pybullet as p
 
+
+
+def sign_check(p1, p2, p3):
+    return (p1[0] - p3[0]) * (p2[1] - p3[1]) - (p2[0] - p3[0]) * (p1[1] - p3[1])
+
+
+
+def PointInTriangle(pt, v1, v2, v3):
+    d1 = sign_check(pt, v1, v2)
+    d2 = sign_check(pt, v2, v3)
+    d3 = sign_check(pt, v3, v1)
+
+    has_neg = (d1 < 0) or (d2 < 0) or (d3 < 0)
+    has_pos = (d1 > 0) or (d2 > 0) or (d3 > 0)
+
+    return not(has_neg and has_pos)    
+
+
+
+def reward_base_direction(pos, head_orient, robot_current_pose):
+    
+    mat = p.getMatrixFromQuaternion(head_orient)
+    dir0 = [mat[0], mat[3], mat[6]]
+    dir1 = [mat[1], mat[4], mat[7]]
+    dir2 = [mat[2], mat[5], mat[8]]
+    lineLen = 1.5
+    
+    dir2_neg = [-mat[1], -mat[4], -mat[7]]
+    to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+
+    pt = [robot_current_pose[0],robot_current_pose[1]]
+    v1 = [pos[0], pos[1]]
+    v2 = [to1[0], to1[1]]
+    v3 = [to2[0], to2[1]]
+
+    return PointInTriangle(pt, v1, v2, v3)
+
+
+def reward_tool_direction(pos, wrist_oreint, robot_tool_pose):
+    
+    mat = p.getMatrixFromQuaternion(wrist_oreint)
+    dir0 = [mat[0], mat[3], mat[6]]
+    dir1 = [mat[1], mat[4], mat[7]]
+    dir2 = [mat[2], mat[5], mat[8]]
+    lineLen = 0.3
+    
+    dir2_neg = [-mat[2], -mat[5], -mat[8]]
+    to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+
+    pt = [robot_tool_pose[0],robot_tool_pose[1]]
+    v1 = [pos[0], pos[1]]
+    v2 = [to1[0], to1[1]]
+    v3 = [to2[0], to2[1]]
+
+    return PointInTriangle(pt, v1, v2, v3)
+
+
+
+
+def generate_line(self, pos, orient):
+    
+    mat = p.getMatrixFromQuaternion(orient)
+    dir0 = [mat[0], mat[3], mat[6]]
+    dir1 = [mat[1], mat[4], mat[7]]
+    dir2 = [mat[2], mat[5], mat[8]]
+    lineLen = 1.5
+    
+    # works only for hand 0.25 linelen
+    #dir2_neg = [-mat[2], -mat[5], -mat[8]]
+    #to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    #to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    
+    # works only for head  1.5 linlen
+    dir2_neg = [-mat[1], -mat[4], -mat[7]]
+    to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    
+    toX = [pos[0] + lineLen * dir0[0], pos[1] + lineLen * dir0[1], pos[2] + lineLen * dir0[2]]
+    toY = [pos[0] + lineLen * dir1[0], pos[1] + lineLen * dir1[1], pos[2] + lineLen * dir1[2]]
+    toZ = [pos[0] + lineLen * dir2[0], pos[1] + lineLen * dir2[1], pos[2] + lineLen * dir2[2]]
+    
+    p.addUserDebugLine(pos, toX, [1, 0, 0], 5)
+    p.addUserDebugLine(pos, toY, [0, 1, 0], 5)
+    p.addUserDebugLine(pos, toZ, [0, 0, 1], 5)    
+    
+    p.addUserDebugLine(pos, to1, [0, 1, 1], 5, 3)    
+    p.addUserDebugLine(pos, to2, [0, 1, 1], 5, 3)
+    p.addUserDebugLine(to2, to1, [0, 1, 1], 5, 3)
+
+
+
 class Util:
     def __init__(self, pid, np_random):
         self.id = pid

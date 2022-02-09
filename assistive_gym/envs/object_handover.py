@@ -8,7 +8,8 @@ import cv2
 from .env import AssistiveEnv
 from .agents import furniture
 from .agents.furniture import Furniture
-
+from .util import reward_base_direction
+from .util import reward_tool_direction
 
 
 class ObjectHandoverEnv(AssistiveEnv):
@@ -42,12 +43,13 @@ class ObjectHandoverEnv(AssistiveEnv):
         #Encourage the robot to move around near the target to simulate scratching
 
         #Discourage movement only for stretch not for pr2
-        self.robot_current_pose,_orient_ = self.robot.get_pos_orient(self.robot.base)
+        self.robot_current_pose,robo_orient_ = self.robot.get_pos_orient(self.robot.base)
 
         reward_movement = -3*np.linalg.norm(self.robot_current_pose-self.robot_old_pose)
         
         #only for pr2 not stretch
         #reward_movement=0
+
 
         self.robot_old_pose = self.robot_current_pose
 
@@ -58,7 +60,24 @@ class ObjectHandoverEnv(AssistiveEnv):
             reward_shake = -1*np.linalg.norm(self.robot_current_arm-self.robot_old_arm)
         
         self.robot_old_arm = self.robot_current_arm
-            
+
+
+        head_pose,head_orient = self.human.get_pos_orient(self.human.head)
+        wrist_pos,wrist_orient = self.human.get_pos_orient(self.human.right_wrist)
+        robot_tool_pos, tool_orient = self.tool.get_pos_orient(0)
+
+
+        if reward_base_direction(head_pose, head_orient, self.robot_current_pose):
+            reward_robot_orientation = 5
+        else:
+            reward_robot_orientation = 0
+
+        if reward_tool_direction(wrist_pos, wrist_orient , robot_tool_pos):
+            reward_tool_orientation = 3
+        else:
+            reward_tool_orientation = 0
+        
+
         #print(self.robot_current_pose)
         if abs(reward_distance)<self.distance_threshold: #0.03
             reward_force_scratch = 5
@@ -72,18 +91,19 @@ class ObjectHandoverEnv(AssistiveEnv):
         #     print('Force on human: ',self.total_force_on_human)
 
         ######### Generate line 
-        p.removeAllUserDebugItems()
-        wrist_pos,wrist_orient = self.human.get_pos_orient(self.human.right_wrist)
-        self.generate_line(wrist_pos,wrist_orient)
+        #p.removeAllUserDebugItems()
+        #wrist_pos,wrist_orient = self.human.get_pos_orient(self.human.head)
+        #self.generate_line(wrist_pos,wrist_orient)
 
-        tool_pos, tool_orient = self.tool.get_pos_orient(0)
-        #tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient) useless command
-        self.generate_line(tool_pos,tool_orient)
+        #tool_pos, tool_orient = self.tool.get_pos_orient(0)
+        # tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient) useless command
+        #self.generate_line(self.robot_current_pose,robo_orient_)
 
 
         ##########
-
+        reward = 0
         reward = reward_shake + reward_movement +  self.config('distance_weight')*reward_distance + self.config('action_weight')*reward_action + self.config('scratch_reward_weight')*reward_force_scratch + preferences_score
+        reward = reward + self.config('robot_orientation')*reward_robot_orientation + self.config('tool_orientation')*reward_tool_orientation
 
         self.total_reward=self.total_reward+reward
         self.prev_target_contact_pos = self.target_contact_pos
@@ -114,19 +134,29 @@ class ObjectHandoverEnv(AssistiveEnv):
         dir0 = [mat[0], mat[3], mat[6]]
         dir1 = [mat[1], mat[4], mat[7]]
         dir2 = [mat[2], mat[5], mat[8]]
-        lineLen = 0.1
-        dir = [-mat[2], -mat[5], -mat[8]]
-
-        to = [pos[0] + lineLen * dir[0], pos[1] + lineLen * dir[1], pos[2] + lineLen * dir[2]]
+        lineLen = 1.5
+        
+        # works only for hand 0.25 linelen
+        #dir2_neg = [-mat[2], -mat[5], -mat[8]]
+        #to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+        #to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+        
+        # works only for head  1.5 linlen
+        dir2_neg = [-mat[1], -mat[4], -mat[7]]
+        to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+        to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+        
         toX = [pos[0] + lineLen * dir0[0], pos[1] + lineLen * dir0[1], pos[2] + lineLen * dir0[2]]
         toY = [pos[0] + lineLen * dir1[0], pos[1] + lineLen * dir1[1], pos[2] + lineLen * dir1[2]]
         toZ = [pos[0] + lineLen * dir2[0], pos[1] + lineLen * dir2[1], pos[2] + lineLen * dir2[2]]
+        
         p.addUserDebugLine(pos, toX, [1, 0, 0], 5)
         p.addUserDebugLine(pos, toY, [0, 1, 0], 5)
         p.addUserDebugLine(pos, toZ, [0, 0, 1], 5)
 
-        p.addUserDebugLine(pos, to, [0.5, 0.5, 0.], 1, 3)
-
+        p.addUserDebugLine(pos, to1, [0, 1, 1], 5, 3)
+        p.addUserDebugLine(pos, to2, [0, 1, 1], 5, 3)
+        p.addUserDebugLine(to2, to1, [0, 1, 1], 5, 3)
 
 
 
@@ -201,7 +231,7 @@ class ObjectHandoverEnv(AssistiveEnv):
         self.robot.motor_gains = self.human.motor_gains = 0.005
 
         joints_positions = [(self.human.j_right_elbow, -90), (self.human.j_left_elbow, -90), (self.human.j_right_hip_x, -90), (self.human.j_right_knee, 80), (self.human.j_left_hip_x, -90), (self.human.j_left_knee, 80)]
-        joints_positions += [(self.human.j_head_x, self.np_random.uniform(-30, 30)), (self.human.j_head_y, self.np_random.uniform(-30, 30)), (self.human.j_head_z, self.np_random.uniform(-30, 30))]
+        joints_positions += [(self.human.j_head_x, -self.np_random.uniform(-10, 10)), (self.human.j_head_y, -self.np_random.uniform(-30, 10)), (self.human.j_head_z, -self.np_random.uniform(-30, 10))]
         self.human.setup_joints(joints_positions, use_static_joints=True, reactive_force=None)
 
         chest_pos, chest_orient = self.human.get_pos_orient(self.human.stomach)
@@ -209,10 +239,7 @@ class ObjectHandoverEnv(AssistiveEnv):
 
 
 
-        self.create_sphere(radius=0.4, mass=0.0, pos=ctarget_pos, visual=True, collision=False, rgba=[1, 0, 0, 0.3])
-
-
-
+        #self.create_sphere(radius=0.4, mass=0.0, pos=ctarget_pos, visual=True, collision=False, rgba=[1, 0, 0, 0.3]
 
         
         self.generate_target()

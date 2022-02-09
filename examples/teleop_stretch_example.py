@@ -3,7 +3,7 @@ import pybullet as p
 import numpy as np
 
 parser = argparse.ArgumentParser(description='Assistive Gym Environment Viewer')
-parser.add_argument('--env', default='ScratchItchStretch-v1',
+parser.add_argument('--env', default='ObjectHandoverStretch-v1',
                     help='Environment to test (default: ScratchItchStretch-v1)')
 args = parser.parse_args()
 
