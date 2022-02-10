@@ -45,7 +45,7 @@ class ObjectHandoverEnv(AssistiveEnv):
         #Discourage movement only for stretch not for pr2
         self.robot_current_pose,robo_orient_ = self.robot.get_pos_orient(self.robot.base)
 
-        reward_movement = -3*np.linalg.norm(self.robot_current_pose-self.robot_old_pose)
+        reward_movement = -1*np.linalg.norm(self.robot_current_pose-self.robot_old_pose)
         
         #only for pr2 not stretch
         #reward_movement=0
@@ -69,6 +69,7 @@ class ObjectHandoverEnv(AssistiveEnv):
 
         if reward_base_direction(head_pose, head_orient, self.robot_current_pose):
             reward_robot_orientation = 5
+            print('Robot in orientation with human')
         else:
             reward_robot_orientation = 0
 
@@ -231,7 +232,7 @@ class ObjectHandoverEnv(AssistiveEnv):
         self.robot.motor_gains = self.human.motor_gains = 0.005
 
         joints_positions = [(self.human.j_right_elbow, -90), (self.human.j_left_elbow, -90), (self.human.j_right_hip_x, -90), (self.human.j_right_knee, 80), (self.human.j_left_hip_x, -90), (self.human.j_left_knee, 80)]
-        joints_positions += [(self.human.j_head_x, -self.np_random.uniform(-10, 10)), (self.human.j_head_y, -self.np_random.uniform(-30, 10)), (self.human.j_head_z, -self.np_random.uniform(-30, 10))]
+        joints_positions += [(self.human.j_head_x, -self.np_random.uniform(0, 10)), (self.human.j_head_y, -self.np_random.uniform(0, 10)), (self.human.j_head_z, -self.np_random.uniform(0, 10))]
         self.human.setup_joints(joints_positions, use_static_joints=True, reactive_force=None)
 
         chest_pos, chest_orient = self.human.get_pos_orient(self.human.stomach)
