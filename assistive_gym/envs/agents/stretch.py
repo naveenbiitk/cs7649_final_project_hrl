@@ -39,15 +39,15 @@ class Stretch(Robot):
                               'bed_bathing': [0, 0, 0],
                               'arm_manipulation': [np.pi/2.0, 0, 0],
                               'object_handover': [0, 0, 0],
-                               'joint_reaching': [0, 0, 0] }
+                               'joint_reaching': [np.pi/2.0, 0, 0] }
         toc_base_pos_offset = {'scratch_itch': [-1.0, -0.1, 0.09], # Robot base offset before TOC base pose optimization
                                'feeding': [-0.9, -0.3, 0.09],
                                'drinking': [-0.9, -0.3, 0.09],
                                'bed_bathing': [-1.1, -0.1, 0.09],
                                'dressing': [0.75, -0.4, 0.09],
                                'arm_manipulation': [-1.3, 0.1, 0.09],
-                               'object_handover': [-0.85, -0.1, 0.09], 
-                               'joint_reaching': [-0.85, -0.1, 0.09]}
+                               'object_handover': [-0.35, -0.1, 0.09], 
+                               'joint_reaching': [-1.25, -0.1, 0.09]}
         toc_ee_orient_rpy = {'scratch_itch': [0, 0, np.pi/2.0], # Initial end effector orientation
                              'feeding': [0, 0, np.pi/2.0],
                              'drinking': [0, 0, np.pi/2.0],
@@ -67,7 +67,7 @@ class Stretch(Robot):
         super(Stretch, self).__init__(controllable_joints, right_arm_joint_indices, left_arm_joint_indices, wheel_joint_indices, right_end_effector, left_end_effector, right_gripper_indices, left_gripper_indices, gripper_pos, right_tool_joint, left_tool_joint, tool_pos_offset, tool_orient_offset, right_gripper_collision_indices, left_gripper_collision_indices, toc_base_pos_offset, toc_ee_orient_rpy, wheelchair_mounted, half_range=False, action_duplication=self.action_duplication, action_multiplier=self.action_multiplier, flags='stretch')
 
     def randomize_init_joint_angles(self, task, offset=0):
-        if task in ['bed_bathing', 'dressing']:
+        if task in ['bed_bathing', 'dressing','object_handover']:
             self.set_joint_angles([3], [0.95+self.np_random.uniform(-0.1, 0.1)])
         else:
             self.set_joint_angles([3], [1.05+self.np_random.uniform(-0.05, 0.05)])

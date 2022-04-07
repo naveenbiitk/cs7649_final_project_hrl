@@ -92,13 +92,14 @@ class ObjectHandoverEnv(AssistiveEnv):
         #     print('Force on human: ',self.total_force_on_human)
 
         ######### Generate line 
-        #p.removeAllUserDebugItems()
-        #wrist_pos,wrist_orient = self.human.get_pos_orient(self.human.head)
+        p.removeAllUserDebugItems()
+        wrist_pos,wrist_orient = self.human.get_pos_orient(self.human.head)
         #self.generate_line(wrist_pos,wrist_orient)
 
-        #tool_pos, tool_orient = self.tool.get_pos_orient(0)
-        # tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient) useless command
+        tool_pos, tool_orient = self.tool.get_pos_orient(0)
+        tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient) #useless command
         #self.generate_line(self.robot_current_pose,robo_orient_)
+        #self.generate_line(tool_pos,tool_orient,0.3)
 
 
         ##########
@@ -129,13 +130,12 @@ class ObjectHandoverEnv(AssistiveEnv):
 
 
 
-    def generate_line(self, pos, orient):
+    def generate_line(self, pos, orient, lineLen=1.5):
         
         mat = p.getMatrixFromQuaternion(orient)
         dir0 = [mat[0], mat[3], mat[6]]
         dir1 = [mat[1], mat[4], mat[7]]
         dir2 = [mat[2], mat[5], mat[8]]
-        lineLen = 1.5
         
         # works only for hand 0.25 linelen
         #dir2_neg = [-mat[2], -mat[5], -mat[8]]
@@ -226,7 +226,7 @@ class ObjectHandoverEnv(AssistiveEnv):
         self.build_assistive_env('wheelchair')
         if self.robot.wheelchair_mounted:
             wheelchair_pos, wheelchair_orient = self.furniture.get_base_pos_orient()
-            self.robot.set_base_pos_orient(wheelchair_pos + np.array(self.robot.toc_base_pos_offset[self.task]), [0, 0, -np.pi/2.0])
+            #self.robot.set_base_pos_orient(wheelchair_pos + np.array(self.robot.toc_base_pos_offset[self.task]), [0, 0, -np.pi/2.0])
 
         # Update robot and human motor gains
         self.robot.motor_gains = self.human.motor_gains = 0.005
@@ -238,8 +238,6 @@ class ObjectHandoverEnv(AssistiveEnv):
         chest_pos, chest_orient = self.human.get_pos_orient(self.human.stomach)
         ctarget_pos, ctarget_orient = p.multiplyTransforms(chest_pos, chest_orient, [0,0,0], [0, 0, 0, 1], physicsClientId=self.id)
 
-
-
         #self.create_sphere(radius=0.4, mass=0.0, pos=ctarget_pos, visual=True, collision=False, rgba=[1, 0, 0, 0.3]
 
         
@@ -248,8 +246,8 @@ class ObjectHandoverEnv(AssistiveEnv):
         p.resetDebugVisualizerCamera(cameraDistance=1.10, cameraYaw=55, cameraPitch=-45, cameraTargetPosition=[-0.2, 0, 0.75], physicsClientId=self.id)
 
         self.tool.init(self.robot, self.task, self.directory, self.id, self.np_random, right=True, mesh_scale=[0.045]*3, alpha=0.75)
-
-        target_ee_pos = np.array([-0.2, -0.5, 1.1]) + self.np_random.uniform(-0.05, 0.05, size=3)
+        self.robot.skip_pose_optimization = True
+        target_ee_pos = np.array([-0.2, -0.1, 1.0]) + self.np_random.uniform(-0.2, 0.2, size=3)
         target_ee_orient = self.get_quaternion(self.robot.toc_ee_orient_rpy[self.task])
         self.init_robot_pose(target_ee_pos, target_ee_orient, [(target_ee_pos, target_ee_orient), (self.target_pos, None)], [(self.target_pos, target_ee_orient)], arm='right', tools=[self.tool], collision_objects=[self.human, self.furniture])
 

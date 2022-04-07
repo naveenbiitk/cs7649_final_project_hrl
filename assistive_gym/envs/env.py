@@ -277,6 +277,7 @@ class AssistiveEnv(gym.Env):
     def init_robot_pose(self, target_ee_pos, target_ee_orient, start_pos_orient, target_pos_orients, arm='right', tools=[], collision_objects=[], wheelchair_enabled=True, right_side=True, max_iterations=3):
         base_position = None
         if self.robot.skip_pose_optimization:
+            self.robot.randomize_init_joint_angles(self.task)
             return base_position
         # Continually resample initial robot pose until we find one where the robot isn't colliding with the person
         for _ in range(max_iterations):
