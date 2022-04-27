@@ -1,21 +1,46 @@
 import os, sys, multiprocessing, gym, ray, shutil, argparse, importlib, glob
 import numpy as np
 # from ray.rllib.agents.ppo import PPOTrainer, DEFAULT_CONFIG
-from ray.rllib.agents import ppo, sac
+from ray.rllib.agents import ppo, sac, a3c, maml
+from ray.rllib.agents.dqn import apex
+
 from ray.tune.logger import pretty_print
 from numpngw import write_apng
+from ray import tune
+
+
+# analysis = tune.run(
+#     "PPO",                                    # Use proximal policy optimization to train 
+#     stop={"episode_reward_mean": 400},        # Stopping criteria, when average reward over the episodes
+#                                               # of training equals 400 out of a maximum possible 500 score.
+#     config={
+#         "env": "CartPole-v1",                 # Tune can associate this string with the environment.
+#         "num_gpus": 0,                        # If you have GPUs, go for it!
+#         "num_workers": 6,                     # Number of Ray workers to use; Use one LESS than 
+#                                               # the number of cores you want to use (or omit this argument)!
+#         "model": {                            # The NN model we'll optimize.
+#             'fcnet_hiddens': [                # "Fully-connected network with N hidden layers".
+#                 tune.grid_search([20, 40]),   # Try these four values for layer one.
+#                 tune.grid_search([20, 40])    # Try these four values for layer two.
+#             ]
+#         },
+#     },
+#     verbose=1
+# )
 
 
 def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
     num_processes = multiprocessing.cpu_count()
     if algo == 'ppo':
         config = ppo.DEFAULT_CONFIG.copy()
-        config['train_batch_size'] = 19200
-        config['num_sgd_iter'] = 50
-        config['sgd_minibatch_size'] = 128
+        config['train_batch_size'] = 1024*8
+        config['num_sgd_iter'] = 100
+        config['sgd_minibatch_size'] = 32
         config['lambda'] = 0.95
-        config['model']['fcnet_hiddens'] = [100, 100]
-        config['lr'] = 1e-5 # default = 5e-5
+        config['model']['fcnet_hiddens'] = [256, 256]
+        config['lr'] = 1e-4 # default = 5e-5
+        config["framework"] = "torch"
+        config["num_gpus"]= 1
     elif algo == 'sac':
         # NOTE: pip3 install tensorflow_probability
         config = sac.DEFAULT_CONFIG.copy()
@@ -24,6 +49,52 @@ def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
         config['Q_model']['fcnet_hiddens'] = [100, 100]
         config['policy_model']['fcnet_hiddens'] = [100, 100]
         # config['normalize_actions'] = False
+    elif algo == 'apex':
+        config = apex.APEX_DEFAULT_CONFIG.copy()
+        config['lambda'] = 0.99
+        #config['learning_starts'] = 1000
+
+    elif algo == 'maml':
+        config = maml.DEFAULT_CONFIG.copy()
+        config['lambda'] = 0.99
+        
+    elif algo == 'a3c':
+        config = a3c.DEFAULT_CONFIG.copy()
+        config["use_critic"] = True
+        # If true, use the Generalized Advantage Estimator (GAE)
+        # with a value function, see https://arxiv.org/pdf/1506.02438.pdf.
+        config["use_gae"] = True
+        # Size of rollout batch
+        # config["rollout_fragment_length"] = 10
+        config["rollout_fragment_length"] = 80
+        # GAE(gamma) parameter
+        config["lambda"] = 0.98
+        # Max global norm for each gradient calculated by worker
+        config["grad_clip"] = 40.0
+        # Learning rate
+        config["lr"] = 0.001
+        # Learning rate schedule
+        config["lr_schedule"] = None
+        # Value Function Loss coefficient
+        config["vf_loss_coeff"] = 0.5
+        # Entropy coefficient
+        config["entropy_coeff"] = 0.01
+        # Entropy coefficient schedule
+        config["entropy_coeff_schedule"] = None
+        # Min time (in seconds) per reporting.
+        # This causes not every call to `training_iteration` to be reported,
+        # but to wait until n seconds have passed and then to summarize the
+        # thus far collected results.
+        # config["min_time_s_per_reporting"] = 5
+        # Workers sample async. Note that this increases the effective
+        # rollout_fragment_length by up to 5x due to async buffering of batches.
+        config["sample_async"] = False
+
+        # Use the Trainer's `training_iteration` function instead of `execution_plan`.
+        # Fixes a severe performance problem with A3C. Setting this to True leads to a
+        # speedup of up to 3x for a large number of workers and heavier
+        # gradient computations (e.g. ray/rllib/tuned_examples/a3c/pong-a3c.yaml)).
+        # config["_disable_execution_plan_api"] = True
     config['num_workers'] = num_processes
     config['num_cpus_per_worker'] = 0
     config['seed'] = seed
@@ -42,6 +113,12 @@ def load_policy(env, algo, env_name, policy_path=None, coop=False, seed=0, extra
         agent = ppo.PPOTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
     elif algo == 'sac':
         agent = sac.SACTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
+    elif algo == 'a3c':
+        agent = a3c.A2CTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
+    elif algo == 'maml':
+        agent = maml.MAMLTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
+    elif algo == 'apex':
+        agent = apex.ApexTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
     print(policy_path)
     if policy_path != '':
         if 'checkpoint' in policy_path:

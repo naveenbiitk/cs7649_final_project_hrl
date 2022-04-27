@@ -94,6 +94,36 @@ def generate_line(self, pos, orient):
     p.addUserDebugLine(to2, to1, [0, 1, 1], 5, 3)
 
 
+def generate_line_hand(self, pos, orient):
+    
+    mat = p.getMatrixFromQuaternion(orient)
+    dir0 = [mat[0], mat[3], mat[6]]
+    dir1 = [mat[1], mat[4], mat[7]]
+    dir2 = [mat[2], mat[5], mat[8]]
+    lineLen = 1.5
+    
+    # works only for hand 0.25 linelen
+    dir2_neg = [-mat[2], -mat[5], -mat[8]]
+    to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    
+    # works only for head  1.5 linlen
+    # dir2_neg = [-mat[1], -mat[4], -mat[7]]
+    # to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    # to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
+    
+    toX = [pos[0] + lineLen * dir0[0], pos[1] + lineLen * dir0[1], pos[2] + lineLen * dir0[2]]
+    toY = [pos[0] + lineLen * dir1[0], pos[1] + lineLen * dir1[1], pos[2] + lineLen * dir1[2]]
+    toZ = [pos[0] + lineLen * dir2[0], pos[1] + lineLen * dir2[1], pos[2] + lineLen * dir2[2]]
+    
+    p.addUserDebugLine(pos, toX, [1, 0, 0], 5)
+    p.addUserDebugLine(pos, toY, [0, 1, 0], 5)
+    p.addUserDebugLine(pos, toZ, [0, 0, 1], 5)    
+    
+    p.addUserDebugLine(pos, to1, [0, 1, 1], 5, 3)    
+    p.addUserDebugLine(pos, to2, [0, 1, 1], 5, 3)
+    p.addUserDebugLine(to2, to1, [0, 1, 1], 5, 3)
+
 
 class Util:
     def __init__(self, pid, np_random):

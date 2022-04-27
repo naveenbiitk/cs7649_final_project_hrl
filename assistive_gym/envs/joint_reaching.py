@@ -10,6 +10,7 @@ class JointReachingEnv(AssistiveEnv):
 
     def __init__(self, robot, human):
         super(JointReachingEnv, self).__init__(robot=robot, human=human, task='joint_reaching', obs_robot_len=(23 + len(robot.controllable_joint_indices) - (len(robot.wheel_joint_indices) if robot.mobile else 0)), obs_human_len=(24 + len(human.controllable_joint_indices)))
+        self.robot_obs_list = []
 
     def step(self, action):
 
@@ -76,7 +77,13 @@ class JointReachingEnv(AssistiveEnv):
 
         #info = {'total_force_on_human': self.total_force_on_human, 'task_success': int(self.task_success >= self.config('task_success_threshold')), 'action_robot_len': self.action_robot_len, 'action_human_len': self.action_human_len, 'obs_robot_len': self.obs_robot_len, 'obs_human_len': self.obs_human_len}
         info = {'total_force_on_human': self.total_force_on_human, 'task_success': self.task_success, 'action_robot_len': self.action_robot_len, 'action_human_len': self.action_human_len, 'obs_robot_len': self.obs_robot_len, 'obs_human_len': self.obs_human_len}
-        done = self.iteration >= 250
+        
+        #print('Observation space ', np.array(self.robot_obs_list).shape)
+        if self.iteration>=250:
+            done = True
+            #np.save('robot_observation_space.npy', np.array(self.robot_obs_list) )
+        else:
+            done = False
 
         jt = self.robot.get_joint_angles(indices=self.robot.left_arm_joint_indices)
         #print('robot joint angles',jt)
@@ -106,7 +113,7 @@ class JointReachingEnv(AssistiveEnv):
         robot_joint_angles = self.robot.get_joint_angles(self.robot.controllable_joint_indices)
         # Fix joint angles to be in [-pi, pi]
         robot_joint_angles = (np.array(robot_joint_angles) + np.pi) % (2*np.pi) - np.pi
-        if self.robot.mobile:
+        if not self.robot.mobile:
             # Don't include joint angles for the wheels
             robot_joint_angles = robot_joint_angles[len(self.robot.wheel_joint_indices):]
         shoulder_pos = self.human.get_pos_orient(self.human.right_shoulder)[0]
@@ -118,6 +125,23 @@ class JointReachingEnv(AssistiveEnv):
         target_pos_real, _ = self.robot.convert_to_realworld(self.target_pos)
         self.total_force_on_human, self.tool_force, self.tool_force_at_target, self.target_contact_pos = self.get_total_force()
         robot_obs = np.concatenate([tool_pos_real, tool_orient_real, tool_pos_real - target_pos_real, target_pos_real, robot_joint_angles, shoulder_pos_real, elbow_pos_real, wrist_pos_real, [self.tool_force]]).ravel()
+        
+        print('--------------------------------------------------')
+        print('tool_pos_real ', np.array(tool_pos_real))
+        print('tool_orient_real ', np.array(tool_orient_real ))
+        print('difference ', np.array(tool_pos_real - target_pos_real ))
+        print('target_pos_real ', np.array(target_pos_real ))
+        print('robot_joint_angles ', np.array(robot_joint_angles ))
+        print('shoulder_pos_real ', np.array(shoulder_pos_real ))
+        print('Elbow_pos_real ', np.array(shoulder_pos_real ))
+        print('Wrist_pos_real ', np.array(shoulder_pos_real ))
+        print('Force ', np.array( [self.tool_force]))
+
+        print('--------------------------------------------------')
+        print('--------------------------------------------------')
+
+        self.robot_obs_list.append(robot_obs)
+
         if agent == 'robot':
             return robot_obs
         if self.human.controllable:

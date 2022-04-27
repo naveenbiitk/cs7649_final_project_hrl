@@ -5,6 +5,8 @@ from scipy.spatial.transform import Rotation as R
 import os
 import cv2
 
+from assistive_gym.envs.agents.furniture import Furniture
+
 from .env import AssistiveEnv
 from .agents import furniture
 from .agents.furniture import Furniture
@@ -14,10 +16,10 @@ from .util import reward_tool_direction
 #from .util import generate_line_hand
 
 
-class ObjectHandoverEnv(AssistiveEnv):
+class JointMotionEnv(AssistiveEnv):
 
     def __init__(self, robot, human):
-        super(ObjectHandoverEnv, self).__init__(robot=robot, human=human, task='object_handover', obs_robot_len=(23 + len(robot.controllable_joint_indices) - (len(robot.wheel_joint_indices) if robot.mobile else 0)), obs_human_len=(24 + len(human.controllable_joint_indices)))
+        super(JointMotionEnv, self).__init__(robot=robot, human=human, task='joint_motion', obs_robot_len=(23 + len(robot.controllable_joint_indices) - (len(robot.wheel_joint_indices) if robot.mobile else 0)), obs_human_len=(24 + len(human.controllable_joint_indices)))
         self.blanket_pose_var = False
 
 
@@ -218,7 +220,7 @@ class ObjectHandoverEnv(AssistiveEnv):
         robot_joint_angles = self.robot.get_joint_angles(self.robot.controllable_joint_indices)
         # Fix joint angles to be in [-pi, pi]
         robot_joint_angles = (np.array(robot_joint_angles) + np.pi) % (2*np.pi) - np.pi
-        if self.robot.mobile:
+        if not self.robot.mobile:
             # Don't include joint angles for the wheels
             robot_joint_angles = robot_joint_angles[len(self.robot.wheel_joint_indices):]
         
@@ -257,7 +259,7 @@ class ObjectHandoverEnv(AssistiveEnv):
 
 
     def reset(self):
-        super(ObjectHandoverEnv, self).reset()
+        super(JointMotionEnv, self).reset()
 
         self.build_assistive_env('wheelchair')
         if self.robot.wheelchair_mounted:
@@ -276,7 +278,12 @@ class ObjectHandoverEnv(AssistiveEnv):
 
         #self.create_sphere(radius=0.4, mass=0.0, pos=ctarget_pos, visual=True, collision=False, rgba=[1, 0, 0, 0.3]
 
-        
+        self.table = Furniture()
+        #self.chair.init(7, env.id, env.np_random, indices=-1)
+        self.table.init(furniture_type='table', directory=self.directory, id=self.id, np_random=self.np_random)
+        self.table.set_base_pos_orient([0.2, -0.85, 0.0], [0, 0, 0])
+        self.table.set_gravity(0, 0, -9.8)
+
         self.generate_target()
 
         p.resetDebugVisualizerCamera(cameraDistance=1.10, cameraYaw=55, cameraPitch=-45, cameraTargetPosition=[-0.2, 0, 0.75], physicsClientId=self.id)
@@ -290,11 +297,41 @@ class ObjectHandoverEnv(AssistiveEnv):
         # Open gripper to hold the tool
         self.robot.set_gripper_open_position(self.robot.right_gripper_indices, self.robot.gripper_pos[self.task], set_instantly=True)
 
+        self.bowl = Furniture()
+        self.bowl.init('bowl', self.directory, self.id, self.np_random)
+
         if not self.robot.mobile:
             self.robot.set_gravity(0, 0, 0)
         self.human.set_gravity(0, 0, 0)
         self.tool.set_gravity(0, 0, 0)
 
+        # Generate food
+        spoon_pos, spoon_orient = self.tool.get_base_pos_orient()
+        bowl_pos, bowl_orient = self.bowl.get_pos_orient(self.bowl.base)
+        #bowl_pos = [-0.1, 0, 0]
+        food_radius = 0.005
+        food_mass = 0.001
+        batch_positions = []
+        for i in range(2):
+            for j in range(2):
+                for k in range(2):
+                    batch_positions.append(np.array([i*2*food_radius, j*2*food_radius, k*2*food_radius+0.01]) + bowl_pos)
+        self.foods = self.create_spheres(radius=food_radius, mass=food_mass, batch_positions=batch_positions, visual=False, collision=True)
+        colors = [[60./256., 186./256., 84./256., 1], [244./256., 194./256., 13./256., 1],
+                  [219./256., 50./256., 54./256., 1], [72./256., 133./256., 237./256., 1]]
+        for i, f in enumerate(self.foods):
+            p.changeVisualShape(f.body, -1, rgbaColor=colors[i%len(colors)], physicsClientId=self.id)
+        self.total_food_count = len(self.foods)
+        self.foods_active = [f for f in self.foods]
+
+        # Enable rendering
+        #p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1, physicsClientId=self.id)
+
+        # Drop food in the spoon
+        for _ in range(25):
+            p.stepSimulation(physicsClientId=self.id)
+
+        #print('Robot is mobile or not', self.robot.mobile)
         p.setPhysicsEngineParameter(numSubSteps=4, numSolverIterations=10, physicsClientId=self.id)
 
         # Enable rendering
@@ -322,7 +359,13 @@ class ObjectHandoverEnv(AssistiveEnv):
         arm_pos, arm_orient = self.human.get_pos_orient(self.limb)
         target_pos, target_orient = p.multiplyTransforms(arm_pos, arm_orient, self.target_on_arm, [0, 0, 0, 1], physicsClientId=self.id)
 
-        self.target = self.create_sphere(radius=0.0, mass=0.0, pos=target_pos, visual=True, collision=False, rgba=[0, 1, 1, 1])
+        self.target = self.create_sphere(radius=0.02, mass=0.0, pos=target_pos, visual=True, collision=False, rgba=[0, 1, 1, 1])
+        print('Target pose 1', target_pos)
+        target_pos_2 = [+0.115, -0.45, 0.73]
+        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_2, visual=True, collision=False, rgba=[0, 1, 1, 1])
+        
+        target_pos_3 = [-0.015, -0.45, 0.73]
+        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_3, visual=True, collision=False, rgba=[1, 0, 1, 1])
         #self.create_sphere(radius=0.1, mass=0.0, pos=arm_pos, visual=True, collision=False, rgba=[0, 0, 1, 1])
 
         self.update_targets()
@@ -364,8 +407,3 @@ class ObjectHandoverEnv(AssistiveEnv):
 
         return depth
 
-
-
-# 3rd one lift up
-# 4th one arm in or out
-# 5th one yaw
