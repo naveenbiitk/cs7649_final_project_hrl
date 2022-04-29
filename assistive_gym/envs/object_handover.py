@@ -218,7 +218,7 @@ class ObjectHandoverEnv(AssistiveEnv):
         robot_joint_angles = self.robot.get_joint_angles(self.robot.controllable_joint_indices)
         # Fix joint angles to be in [-pi, pi]
         robot_joint_angles = (np.array(robot_joint_angles) + np.pi) % (2*np.pi) - np.pi
-        if self.robot.mobile:
+        if not self.robot.mobile:
             # Don't include joint angles for the wheels
             robot_joint_angles = robot_joint_angles[len(self.robot.wheel_joint_indices):]
         

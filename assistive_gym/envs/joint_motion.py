@@ -20,7 +20,7 @@ class JointMotionEnv(AssistiveEnv):
 
     def __init__(self, robot, human):
         super(JointMotionEnv, self).__init__(robot=robot, human=human, task='joint_motion', obs_robot_len=(23 + len(robot.controllable_joint_indices) - (len(robot.wheel_joint_indices) if robot.mobile else 0)), obs_human_len=(24 + len(human.controllable_joint_indices)))
-        self.blanket_pose_var = False
+        
 
 
     def step(self, action):
@@ -29,16 +29,20 @@ class JointMotionEnv(AssistiveEnv):
 
         if self.human.controllable:
             action = np.concatenate([action['robot'], action['human']])
-        self.take_step(action/4)
+        
+        #action[4]=500
+        #print('Full in JM', action)
+        self.take_step(action*100)
 
         obs = self._get_obs()
         # print(np.array_str(obs, precision=3, suppress_small=True))
 
+        # print(action)
         # Get human preferences
         end_effector_velocity = np.linalg.norm(self.robot.get_velocity(self.robot.left_end_effector))
         preferences_score = self.human_preferences(end_effector_velocity=end_effector_velocity, total_force_on_human=self.total_force_on_human, tool_force_at_target=self.tool_force_at_target)
 
-        tool_pos = self.tool.get_pos_orient(0)[0]
+        tool_pos = self.tool.get_base_pos_orient()[0]
         reward_distance = -np.linalg.norm(self.target_pos - tool_pos) #Penalize distances away from target
         reward_action = -np.linalg.norm(action) #Penalize actions
         reward_force_scratch = 0.0 #Reward force near the target
@@ -68,7 +72,7 @@ class JointMotionEnv(AssistiveEnv):
 
         head_pose,head_orient = self.human.get_pos_orient(self.human.head)
         wrist_pos,wrist_orient = self.human.get_pos_orient(self.human.right_wrist)
-        robot_tool_pos, tool_orient = self.tool.get_pos_orient(0)
+        robot_tool_pos, tool_orient = self.tool.get_base_pos_orient()
 
 
         if reward_base_direction(head_pose, head_orient, self.robot_current_pose):
@@ -103,7 +107,7 @@ class JointMotionEnv(AssistiveEnv):
         wrt_pos,wrt_orient = self.human.get_pos_orient(self.human.right_wrist)
         #self.generate_line_hand(wrt_pos,wrt_orient,0.3)
 
-        tool_pos, tool_orient = self.tool.get_pos_orient(0)
+        tool_pos, tool_orient = self.tool.get_base_pos_orient()
         tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient) #useless command
         #self.generate_line(self.robot_current_pose,robo_orient_)
         #self.generate_line(tool_pos,tool_orient,0.3)
@@ -215,12 +219,12 @@ class JointMotionEnv(AssistiveEnv):
 
 
     def _get_obs(self, agent=None):
-        tool_pos, tool_orient = self.tool.get_pos_orient(0)
+        tool_pos, tool_orient = self.tool.get_base_pos_orient()
         tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient)
         robot_joint_angles = self.robot.get_joint_angles(self.robot.controllable_joint_indices)
         # Fix joint angles to be in [-pi, pi]
         robot_joint_angles = (np.array(robot_joint_angles) + np.pi) % (2*np.pi) - np.pi
-        if not self.robot.mobile:
+        if self.robot.mobile:
             # Don't include joint angles for the wheels
             robot_joint_angles = robot_joint_angles[len(self.robot.wheel_joint_indices):]
         
@@ -281,7 +285,7 @@ class JointMotionEnv(AssistiveEnv):
         self.table = Furniture()
         #self.chair.init(7, env.id, env.np_random, indices=-1)
         self.table.init(furniture_type='table', directory=self.directory, id=self.id, np_random=self.np_random)
-        self.table.set_base_pos_orient([0.2, -0.85, 0.0], [0, 0, 0])
+        self.table.set_base_pos_orient([0.3, -0.85, 0.0], [0, 0, 0])
         self.table.set_gravity(0, 0, -9.8)
 
         self.generate_target()
@@ -290,9 +294,15 @@ class JointMotionEnv(AssistiveEnv):
 
         self.tool.init(self.robot, self.task, self.directory, self.id, self.np_random, right=True, mesh_scale=[0.045]*3, alpha=0.75)
         self.robot.skip_pose_optimization = True
-        target_ee_pos = np.array([-0.2, -0.1, 1.0]) + self.np_random.uniform(-0.2, 0.2, size=3)
+        target_ee_pos = np.array([-0.1, 0.1, 0.5]) 
         target_ee_orient = self.get_quaternion(self.robot.toc_ee_orient_rpy[self.task])
-        self.init_robot_pose(target_ee_pos, target_ee_orient, [(target_ee_pos, target_ee_orient), (self.target_pos, None)], [(self.target_pos, target_ee_orient)], arm='right', tools=[self.tool], collision_objects=[self.human, self.furniture])
+        #self.init_robot_pose(target_ee_pos, target_ee_orient, [(target_ee_pos, target_ee_orient), (self.target_pos, None)], [(self.target_pos, target_ee_orient)], arm='right', tools=[self.tool], collision_objects=[self.human, self.furniture])
+
+        # pos = [-0.625, -0.5, 0.1]
+        pos = [-1.825, -0.5, 0.1]
+        orient = [0, 0, np.pi / 2.0]
+        self.robot.set_base_pos_orient(pos, orient)
+        self.robot.randomize_init_joint_angles(self.task)
 
         # Open gripper to hold the tool
         self.robot.set_gripper_open_position(self.robot.right_gripper_indices, self.robot.gripper_pos[self.task], set_instantly=True)
@@ -303,7 +313,7 @@ class JointMotionEnv(AssistiveEnv):
         if not self.robot.mobile:
             self.robot.set_gravity(0, 0, 0)
         self.human.set_gravity(0, 0, 0)
-        self.tool.set_gravity(0, 0, 0)
+        self.tool.set_gravity(0, 0, -9)
 
         # Generate food
         spoon_pos, spoon_orient = self.tool.get_base_pos_orient()
@@ -328,7 +338,7 @@ class JointMotionEnv(AssistiveEnv):
         #p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1, physicsClientId=self.id)
 
         # Drop food in the spoon
-        for _ in range(25):
+        for _ in range(50):
             p.stepSimulation(physicsClientId=self.id)
 
         #print('Robot is mobile or not', self.robot.mobile)
@@ -362,10 +372,10 @@ class JointMotionEnv(AssistiveEnv):
         self.target = self.create_sphere(radius=0.02, mass=0.0, pos=target_pos, visual=True, collision=False, rgba=[0, 1, 1, 1])
         print('Target pose 1', target_pos)
         target_pos_2 = [+0.115, -0.45, 0.73]
-        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_2, visual=True, collision=False, rgba=[0, 1, 1, 1])
+        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_2, visual=True, collision=False, rgba=[1, 0, 1, 1])
         
-        target_pos_3 = [-0.015, -0.45, 0.73]
-        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_3, visual=True, collision=False, rgba=[1, 0, 1, 1])
+        target_pos_3 = [-0.07, -0.41, 0.73]
+        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_3, visual=True, collision=False, rgba=[0, 1, 1, 1])
         #self.create_sphere(radius=0.1, mass=0.0, pos=arm_pos, visual=True, collision=False, rgba=[0, 0, 1, 1])
 
         self.update_targets()

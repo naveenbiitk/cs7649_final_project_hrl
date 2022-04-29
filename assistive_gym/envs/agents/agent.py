@@ -32,6 +32,22 @@ class Agent:
             forces = [forces]*len(indices)
         p.setJointMotorControlArray(self.body, jointIndices=indices, controlMode=p.POSITION_CONTROL, targetPositions=target_angles, positionGains=gains, forces=forces, physicsClientId=self.id)
 
+
+    def perform_special_gripper_action(self, action_name, indices):
+        #indices = self.right_gripper_indices
+        forces = [500] * len(indices)
+        gains = np.array([0.05] * len(indices))
+
+        if action_name == 0: #0 open
+            positions = [np.pi / 2] * len(indices)
+        elif action_name == 1: #1 closed
+            positions = [0.2] * len(indices)
+        else:
+            raise ValueError(action_name)
+
+        p.setJointMotorControlArray(self.body, jointIndices=indices, controlMode=p.POSITION_CONTROL, targetPositions=positions, positionGains=gains, forces=forces)
+
+
     def get_joint_angles(self, indices=None):
         if indices is None:
             indices = self.all_joint_indices

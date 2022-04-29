@@ -7,6 +7,8 @@ left_arm_joints = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 right_leg_joints = [28, 29, 30, 31, 32, 33, 34]
 left_leg_joints = [35, 36, 37, 38, 39, 40, 41]
 head_joints = [20, 21, 22, 23]
+# motion_right_arm_joints = [2, 6, 1]
+motion_right_arm_joints = [1, 2, 4, 5, 6, 7]
 
 class Human(Agent):
     def __init__(self, controllable_joint_indices, controllable=False):
@@ -143,7 +145,8 @@ class Human(Agent):
         tx2 = (tx + 2*np.pi) % (2*np.pi)
         ty2 = (-1 if right else 1)*ty
         qe2 = (-qe + 2*np.pi) % (2*np.pi)
-        result = self.limits_model.predict_classes(np.array([[tz2, tx2, ty2, qe2]]))
+        #result = self.limits_model.predict_classes(np.array([[tz2, tx2, ty2, qe2]]))
+        result = np.argmax(self.limits_model.predict(np.array([[tz2, tx2, ty2, qe2]])), axis=-1)
         if result == 1:
             # This is a valid pose for the person
             self.arm_previous_valid_pose[right] = [tz, tx, ty, qe]

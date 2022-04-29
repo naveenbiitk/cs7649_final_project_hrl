@@ -187,15 +187,19 @@ class AssistiveEnv(gym.Env):
         actions = np.clip(actions, a_min=self.action_space.low, a_max=self.action_space.high)
         actions *= action_multiplier
         action_index = 0
+       
         for i, agent in enumerate(self.agents):
             needs_action = not isinstance(agent, Human) or agent.controllable
             if needs_action:
                 agent_action_len = len(agent.controllable_joint_indices)
-                #print(actions)
+                
                 action = np.copy(actions[action_index:action_index+agent_action_len])
                 action_index += agent_action_len
                 if isinstance(agent, Robot):
+                    if agent.gripper_included:
+                        action_name = int(actions[4]>0)
                     action *= agent.action_multiplier
+                    
                 if len(action) != agent_action_len:
                     print('Received agent actions of length %d does not match expected action length of %d' % (len(action), agent_action_len))
                     exit()
@@ -216,10 +220,20 @@ class AssistiveEnv(gym.Env):
                     agent_joint_angles = agent.target_joint_angles + agent.tremors * (1 if self.iteration % 2 == 0 else -1)
                 else:
                     agent_joint_angles += action
+                    if isinstance(agent, Robot) and agent.gripper_included:
+                        agent_joint_angles[4]=0.01
+                    #print('Action',agent_joint_angles)
             if isinstance(agent, Robot) and agent.action_duplication is not None:
                 agent_joint_angles = np.concatenate([[a]*d for a, d in zip(agent_joint_angles, self.robot.action_duplication)])
                 agent.control(agent.all_controllable_joints, agent_joint_angles, agent.gains, agent.forces)
+                
+                if agent.gripper_included:
+                    agent.perform_special_gripper_action(action_name, agent.left_gripper_indices)
+                    #print('Full actions', actions)
+                    #print('sending to name',int(actions[-1]))
+                #print('agent action loop 1') Stretch joint motion works here
             else:
+                #print('agent action loop 2')
                 agent.control(agent.controllable_joint_indices, agent_joint_angles, gains[i], forces[i])
         if step_sim:
             # Update all agent positions
@@ -233,7 +247,9 @@ class AssistiveEnv(gym.Env):
                 self.update_targets()
                 if self.gui:
                     # Slow down time so that the simulation matches real time
-                    self.slow_time()
+                    pass
+                    #self.slow_time()
+
 
     def human_preferences(self, end_effector_velocity=0, total_force_on_human=0, tool_force_at_target=0, food_hit_human_reward=0, food_mouth_velocities=[], dressing_forces=[[]], arm_manipulation_tool_forces_on_human=[0, 0], arm_manipulation_total_force_on_human=0):
         # Slow end effector velocities

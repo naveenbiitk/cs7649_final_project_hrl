@@ -40,7 +40,7 @@ def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
         config['model']['fcnet_hiddens'] = [256, 256]
         config['lr'] = 1e-4 # default = 5e-5
         config["framework"] = "torch"
-        config["num_gpus"]= 1
+        #config["num_gpus"]= 1
     elif algo == 'sac':
         # NOTE: pip3 install tensorflow_probability
         config = sac.DEFAULT_CONFIG.copy()

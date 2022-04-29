@@ -22,7 +22,15 @@ class Tool(Agent):
         elif task == 'joint_reaching':
             tool = p.loadURDF(os.path.join(directory, 'bed_bathing', 'wiper.urdf'), basePosition=transform_pos, baseOrientation=transform_orient, physicsClientId=id)
         elif task == 'joint_motion':
-            tool = p.loadURDF(os.path.join(directory, 'scratcher', 'tool_scratch.urdf'), basePosition=transform_pos, baseOrientation=transform_orient, physicsClientId=id)
+            mass = 0.1
+            mesh_scale = [0.05] * 3
+            visual_filename = os.path.join(directory, 'dinnerware', 'plastic_coffee_cup.obj')
+            collision_filename = os.path.join(directory, 'dinnerware', 'plastic_coffee_cup_vhacd.obj')
+            tool_visual = p.createVisualShape(shapeType=p.GEOM_MESH, fileName=visual_filename, meshScale=mesh_scale, rgbaColor=[1, 1, 1, alpha], physicsClientId=id)
+            tool_collision = p.createCollisionShape(shapeType=p.GEOM_MESH, fileName=collision_filename, meshScale=mesh_scale, physicsClientId=id)
+            transform_pos = np.array([-0.2, -0.81, 0.78]) 
+            tool = p.createMultiBody(baseMass=mass, baseCollisionShapeIndex=tool_collision, baseVisualShapeIndex=tool_visual, basePosition=transform_pos, baseOrientation=transform_orient, useMaximalCoordinates=maximal, physicsClientId=id)
+
         elif task == 'object_handover':
             tool = p.loadURDF(os.path.join(directory, 'scratcher', 'tool_scratch.urdf'), basePosition=transform_pos, baseOrientation=transform_orient, physicsClientId=id)
         elif task in ['drinking', 'feeding', 'arm_manipulation']:
@@ -43,14 +51,15 @@ class Tool(Agent):
 
         super(Tool, self).init(tool, id, np_random, indices=-1)
 
-        if robot is not None:
+        #if robot is not None:
             # Disable collisions between the tool and robot
-            for j in (robot.right_gripper_collision_indices if right else robot.left_gripper_collision_indices):
-                for tj in self.all_joint_indices + [self.base]:
-                    p.setCollisionFilterPair(robot.body, self.body, j, tj, False, physicsClientId=id)
-            # Create constraint that keeps the tool in the gripper
-            constraint = p.createConstraint(robot.body, robot.right_tool_joint if right else robot.left_tool_joint, self.body, -1, p.JOINT_FIXED, [0, 0, 0], parentFramePosition=self.pos_offset, childFramePosition=[0, 0, 0], parentFrameOrientation=self.orient_offset, childFrameOrientation=[0, 0, 0, 1], physicsClientId=id)
-            p.changeConstraint(constraint, maxForce=500, physicsClientId=id)
+            # for j in (robot.right_gripper_collision_indices if right else robot.left_gripper_collision_indices):
+            #     for tj in self.all_joint_indices + [self.base]:
+            #         p.setCollisionFilterPair(robot.body, self.body, j, tj, False, physicsClientId=id)
+            # # Create constraint that keeps the tool in the gripper
+            #Commented the two lines for putting the tool down
+            #constraint = p.createConstraint(robot.body, robot.right_tool_joint if right else robot.left_tool_joint, self.body, -1, p.JOINT_FIXED, [0, 0, 0], parentFramePosition=self.pos_offset, childFramePosition=[0, 0, 0], parentFrameOrientation=self.orient_offset, childFrameOrientation=[0, 0, 0, 1], physicsClientId=id)
+            #p.changeConstraint(constraint, maxForce=500, physicsClientId=id)
 
     def get_transform(self):
         if self.robot is not None:
