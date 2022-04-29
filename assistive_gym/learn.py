@@ -1,46 +1,24 @@
 import os, sys, multiprocessing, gym, ray, shutil, argparse, importlib, glob
 import numpy as np
 # from ray.rllib.agents.ppo import PPOTrainer, DEFAULT_CONFIG
-from ray.rllib.agents import ppo, sac, a3c, maml
-from ray.rllib.agents.dqn import apex
-
+from ray.rllib.agents import ppo, sac, a3c
+from ray.rllib.agents.marwil.bc import BCTrainer, BC_DEFAULT_CONFIG
+from ray.rllib.agents.marwil.marwil import MARWILTrainer
+from ray.rllib.agents.marwil.marwil import DEFAULT_CONFIG as MARWIL_DEFAULT_CONFIG
 from ray.tune.logger import pretty_print
 from numpngw import write_apng
 from ray import tune
-
-
-# analysis = tune.run(
-#     "PPO",                                    # Use proximal policy optimization to train 
-#     stop={"episode_reward_mean": 400},        # Stopping criteria, when average reward over the episodes
-#                                               # of training equals 400 out of a maximum possible 500 score.
-#     config={
-#         "env": "CartPole-v1",                 # Tune can associate this string with the environment.
-#         "num_gpus": 0,                        # If you have GPUs, go for it!
-#         "num_workers": 6,                     # Number of Ray workers to use; Use one LESS than 
-#                                               # the number of cores you want to use (or omit this argument)!
-#         "model": {                            # The NN model we'll optimize.
-#             'fcnet_hiddens': [                # "Fully-connected network with N hidden layers".
-#                 tune.grid_search([20, 40]),   # Try these four values for layer one.
-#                 tune.grid_search([20, 40])    # Try these four values for layer two.
-#             ]
-#         },
-#     },
-#     verbose=1
-# )
-
 
 def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
     num_processes = multiprocessing.cpu_count()
     if algo == 'ppo':
         config = ppo.DEFAULT_CONFIG.copy()
-        config['train_batch_size'] = 1024*8
-        config['num_sgd_iter'] = 100
-        config['sgd_minibatch_size'] = 32
+        config['train_batch_size'] = 19200
+        config['num_sgd_iter'] = 50
+        config['sgd_minibatch_size'] = 128
         config['lambda'] = 0.95
-        config['model']['fcnet_hiddens'] = [256, 256]
-        config['lr'] = 1e-4 # default = 5e-5
-        config["framework"] = "torch"
-        #config["num_gpus"]= 1
+        config['model']['fcnet_hiddens'] = [100, 100]
+        config['lr'] = 1e-5 # default = 5e-5
     elif algo == 'sac':
         # NOTE: pip3 install tensorflow_probability
         config = sac.DEFAULT_CONFIG.copy()
@@ -49,53 +27,114 @@ def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
         config['Q_model']['fcnet_hiddens'] = [100, 100]
         config['policy_model']['fcnet_hiddens'] = [100, 100]
         # config['normalize_actions'] = False
-    elif algo == 'apex':
-        config = apex.APEX_DEFAULT_CONFIG.copy()
-        config['lambda'] = 0.99
-        #config['learning_starts'] = 1000
-
-    elif algo == 'maml':
-        config = maml.DEFAULT_CONFIG.copy()
-        config['lambda'] = 0.99
-        
     elif algo == 'a3c':
         config = a3c.DEFAULT_CONFIG.copy()
         config["use_critic"] = True
-        # If true, use the Generalized Advantage Estimator (GAE)
-        # with a value function, see https://arxiv.org/pdf/1506.02438.pdf.
         config["use_gae"] = True
         # Size of rollout batch
-        # config["rollout_fragment_length"] = 10
-        config["rollout_fragment_length"] = 80
-        # GAE(gamma) parameter
-        config["lambda"] = 0.98
-        # Max global norm for each gradient calculated by worker
+        config["rollout_fragment_length"] = 20
         config["grad_clip"] = 40.0
-        # Learning rate
-        config["lr"] = 0.001
-        # Learning rate schedule
+        config["lr"] = 1e-7
         config["lr_schedule"] = None
-        # Value Function Loss coefficient
-        config["vf_loss_coeff"] = 0.5
-        # Entropy coefficient
-        config["entropy_coeff"] = 0.01
-        # Entropy coefficient schedule
+        config["vf_loss_coeff"] = 0.75
+        config["entropy_coeff"] = 0.0
         config["entropy_coeff_schedule"] = None
-        # Min time (in seconds) per reporting.
-        # This causes not every call to `training_iteration` to be reported,
-        # but to wait until n seconds have passed and then to summarize the
-        # thus far collected results.
         # config["min_time_s_per_reporting"] = 5
         # Workers sample async. Note that this increases the effective
         # rollout_fragment_length by up to 5x due to async buffering of batches.
         config["sample_async"] = False
-
-        # Use the Trainer's `training_iteration` function instead of `execution_plan`.
-        # Fixes a severe performance problem with A3C. Setting this to True leads to a
-        # speedup of up to 3x for a large number of workers and heavier
-        # gradient computations (e.g. ray/rllib/tuned_examples/a3c/pong-a3c.yaml)).
         # config["_disable_execution_plan_api"] = True
-    config['num_workers'] = num_processes
+
+    elif algo == 'bc':
+        config = BC_DEFAULT_CONFIG.copy()
+        config['model']['vf_share_layers'] = False
+        config['model']['fcnet_hiddens'] = [32,16]
+
+        config["lr"]: 1e-4
+        # config["lr"]: tune.grid_search([0.01, 0.001, 0.0001])
+
+        # expert demonstration
+        # config["input"] = "/home/hrl_gpu_1/hrl_git/assistive_gym_fem_tri/examples/demo-out/"
+        config['input'] = "sampler"
+        config["input_config"]={
+            "format": "json",  # json or parquet
+            # Path to data file or directory.
+            "path": "/home/hrl_gpu_1/hrl_git/assistive_gym_fem_tri/examples/",
+            # Num of tasks reading dataset in parallel, default is num_workers.
+            # "parallelism": 3,
+            # Dataset allocates 0.5 CPU for each reader by default.
+            # Adjust this value based on the size of your offline dataset.
+            # "num_cpus_per_read_task": 0.5,
+        }
+        config["use_gae"] = True
+        # When beta is 0.0, MARWIL is reduced to behavior cloning
+        config["beta"] = 0.0
+        # Balancing value estimation loss and policy optimization loss.
+        config["vf_coeff"] = 1.0
+        # If specified, clip the global norm of gradients by this amount.
+        config["grad_clip"] = None
+        # config["lr"] = (tune.loguniform(1e-4, 1e-2))
+        # The squared moving avg. advantage norm (c^2) update rate
+        # (1e-8 in the paper).
+        config["moving_average_sqd_adv_norm_update_rate"] = 1e-8
+        # Starting value for the squared moving avg. advantage norm (c^2).
+        config["moving_average_sqd_adv_norm_start"] = 100.0
+        # Number of (independent) timesteps pushed through the loss
+        # each SGD round.
+        config["train_batch_size"] = 2000
+        # config["train_batch_size"] = 1000
+        # Size of the replay buffer in (single and independent) timesteps.
+        # The buffer gets filled by reading from the input files line-by-line
+        # and adding all timesteps on one line at once. We then sample
+        # uniformly from the buffer (`train_batch_size` samples) for
+        # each training step.
+        # config["replay_buffer_size"] = 10000
+        # config["replay_buffer_size"] = 150
+        # Number of steps to read before learning starts.
+        config["learning_starts"] = 0
+    
+    elif algo == 'marwil':
+        config = MARWIL_DEFAULT_CONFIG.copy()
+        # expert demonstration
+        # config["input"] = "/home/hrl_gpu_1/hrl_git/assistive_gym_fem_tri/examples/demo-out/"
+        config['input'] = "sampler"
+        config["input_config"]={
+            "format": "json",  # json or parquet
+            # Path to data file or directory.
+            "path": "/home/hrl_gpu_1/hrl_git/assistive_gym_fem_tri/examples/",
+            # "parallelism": 3,
+            # "num_cpus_per_read_task": 0.5,
+        }
+        config["use_gae"] = True
+        # When beta is 0.0, MARWIL is reduced to behavior cloning
+        config["beta"] = 1.0
+        # Balancing value estimation loss and policy optimization loss.
+        config["vf_coeff"] = 1.0
+        # If specified, clip the global norm of gradients by this amount.
+        config["grad_clip"] = None
+        # Learning rate for Adam optimizer.
+        config["lr"] = 1e-4
+        # The squared moving avg. advantage norm (c^2) update rate
+        # (1e-8 in the paper).
+        config["moving_average_sqd_adv_norm_update_rate"] = 1e-8
+        # Starting value for the squared moving avg. advantage norm (c^2).
+        config["moving_average_sqd_adv_norm_start"] = 100.0
+        # Number of (independent) timesteps pushed through the loss
+        # each SGD round.
+        config["train_batch_size"] = 2000
+        # config["train_batch_size"] = 150
+        # Size of the replay buffer in (single and independent) timesteps.
+        # The buffer gets filled by reading from the input files line-by-line
+        # and adding all timesteps on one line at once. We then sample
+        # uniformly from the buffer (`train_batch_size` samples) for
+        # each training step.
+        config["replay_buffer_size"] = 10000
+        # config["replay_buffer_size"] = 450
+        # Number of steps to read before learning starts.
+        config["learning_starts"] = 0
+        
+    config['num_workers'] = num_processes // 2
+    # config['num_workers'] = 1
     config['num_cpus_per_worker'] = 0
     config['seed'] = seed
     config['log_level'] = 'ERROR'
@@ -115,10 +154,11 @@ def load_policy(env, algo, env_name, policy_path=None, coop=False, seed=0, extra
         agent = sac.SACTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
     elif algo == 'a3c':
         agent = a3c.A2CTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
-    elif algo == 'maml':
-        agent = maml.MAMLTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
-    elif algo == 'apex':
-        agent = apex.ApexTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
+    elif algo == 'bc':
+        agent = BCTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
+    elif algo == 'marwil':
+        agent = MARWILTrainer(setup_config(env, algo, coop, seed, extra_configs), 'assistive_gym:'+env_name)
+
     print(policy_path)
     if policy_path != '':
         if 'checkpoint' in policy_path:
@@ -157,13 +197,31 @@ def train(env_name, algo, timesteps_total=1000000, save_dir='./trained_models/',
 
     timesteps = 0
     while timesteps < timesteps_total:
+        # result = dict()
         result = agent.train()
+        # analysis = tune.run("BC", config=setup_config(env_name, algo, coop, seed, extra_configs))
+
+        timesteps = 0
         timesteps = result['timesteps_total']
+
+        # result['episode_reward_mean'] = analysis.get_best_trial("episode_reward_mean")
+        # result['episode_reward_min'] = analysis.best_result
+        # result['episode_reward_max'] = analysis.best_result
+
         if coop:
             # Rewards are added in multi agent envs, so we divide by 2 since agents share the same reward in coop
             result['episode_reward_mean'] /= 2
             result['episode_reward_min'] /= 2
             result['episode_reward_max'] /= 2
+
+        # data to graph
+        reward_path = './rewards/'
+        if not os.path.exists(reward_path):
+            os.makedirs(reward_path)
+        f = open(reward_path + algo + '_rewards' + '.txt', 'a')
+        f.write(str([timesteps, result['episode_reward_mean']]) + ', ')
+        f.close()
+        
         print(f"Iteration: {result['training_iteration']}, total timesteps: {result['timesteps_total']}, total time: {result['time_total_s']:.1f}, FPS: {result['timesteps_total']/result['time_total_s']:.1f}, mean reward: {result['episode_reward_mean']:.1f}, min/max reward: {result['episode_reward_min']:.1f}/{result['episode_reward_max']:.1f}")
         sys.stdout.flush()
 
@@ -184,6 +242,7 @@ def render_policy(env, env_name, algo, policy_path, coop=False, colab=False, see
 
     if not colab:
         env.render()
+    # robot_action_array = []
     frames = []
     for episode in range(n_episodes):
         obs = env.reset()
@@ -193,6 +252,8 @@ def render_policy(env, env_name, algo, policy_path, coop=False, colab=False, see
                 # Compute the next action for the robot/human using the trained policies
                 action_robot = test_agent.compute_action(obs['robot'], policy_id='robot')
                 action_human = test_agent.compute_action(obs['human'], policy_id='human')
+                # human_action_array.append(action_human)
+                # robot_action_array.append(action_robot)
                 # Step the simulation forward using the actions from our trained policies
                 obs, reward, done, info = env.step({'robot': action_robot, 'human': action_human})
                 done = done['__all__']
@@ -206,6 +267,13 @@ def render_policy(env, env_name, algo, policy_path, coop=False, colab=False, see
                 img, depth = env.get_camera_image_depth()
                 frames.append(img)
     env.disconnect()
+    
+    # np_human_actions = np.asarray(human_action_array, dtype=np.float32)
+    # #np.save('./trained_models/human_actions_sample.npy', np_human_actions)
+
+    # np_robot_actions = np.asarray(robot_action_array, dtype=np.float32)
+    # np.save('./trained_models/robot_actions_sample.npy', np_robot_actions) 
+    
     if colab:
         filename = 'output_%s.png' % env_name
         write_apng(filename, frames, delay=100)
@@ -251,7 +319,7 @@ def evaluate_policy(env_name, algo, policy_path, n_episodes=100, coop=False, see
     env.disconnect()
 
     print('\n', '-'*50, '\n')
-    # print('Rewards:', rewards)
+    print('Rewards:', rewards)
     print('Reward Mean:', np.mean(rewards))
     print('Reward Std:', np.std(rewards))
 
