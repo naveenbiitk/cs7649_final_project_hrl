@@ -19,7 +19,98 @@ class JointMotionEnv(AssistiveEnv):
 
     def __init__(self, robot, human):
         super(JointMotionEnv, self).__init__(robot=robot, human=human, task='joint_motion', obs_robot_len=(23 + len(robot.controllable_joint_indices) - (len(robot.wheel_joint_indices) if robot.mobile else 0)), obs_human_len=(24 + len(human.controllable_joint_indices)))
-        
+        self.phase_of_robot=1
+        self.phase_of_human=1
+        self.robot_grab_cup_epsilon=0.1
+        self.cup_target_epsilon=0.1
+        self.human_bowl_epsilon=0.1
+        self.human_mouth_epsilon=0.1
+        self.human_bowl_epsilon=0.1
+        self.cup_top_center_offset = np.array([0, 0, -0.055])
+        self.cup_bottom_center_offset = np.array([0, 0, 0.07])
+
+
+    def robot_reward(self):
+
+        if self.phase_of_robot==1:
+            #Grab cup at start position
+            #provide reward to move to cup
+
+            robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+            robo_wrist_pos_np = np.array(robot_wrist_pos)
+
+            cup_pos, cup_orient = self.tool.get_base_pos_orient()
+            cup_pos, cup_orient = p.multiplyTransforms(cup_pos, cup_orient, [0, 0.06, 0], self.get_quaternion([np.pi/2.0, 0, 0]), physicsClientId=self.id)
+            cup_top_center_pos, _ = p.multiplyTransforms(cup_pos, cup_orient, self.cup_top_center_offset, [0, 0, 0, 1], physicsClientId=self.id)
+            
+            distance = np.linalg.norm(np.array(cup_top_center_pos)-robo_wrist_pos_np)
+    
+            reward_robot = -distance
+            if distance < self.robot_grab_cup_epsilon:
+                self.phase_of_robot = 2
+                return reward_robot 
+
+        if self.phase_of_robot==2:
+            # Place cup at target pose 2
+            # provide reward to move to bowl
+            # bowl pose is self.target_3
+            robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+            robo_wrist_pos_np = np.array(robot_wrist_pos)
+            distance = np.linalg.norm(self.target_2_pose-robo_wrist_pos_np)
+            
+            reward_robot = -distance
+            if distance < self.cup_target_epsilon:
+                self.phase_of_robot = 3
+                return reward_robot 
+
+        if self.phase_of_robot==3:
+            # Move out of the way, so human can continue their motion
+            # provide reward to move to bowl
+            # bowl pose is self.target_3
+            wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)     
+            wrist_pos_np = np.array(wrist_pos)
+            distance = np.linalg.norm(self.target_3_pose-wrist_pos_np)
+            
+            wrist_reduction = -self.robot.get_joint_angles(5)  #stretch try with 6,7,8 also
+
+            reward_human = distance + wrist_reduction
+
+            if distance < self.human_bowl_epsilon:
+                self.task_success = 1
+
+        return reward_robot         
+
+
+    def human_reward(self):
+
+        if self.phase_of_human==1:
+            #Human hand is on bowl,
+            #provide reward to move to mouth
+            wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)     
+            wrist_pos_np = np.array(wrist_pos)
+            head_pos, head_orient = self.human.get_pos_orient(self.human.head)
+            head_pos_np = np.array(head_pos)
+            #mouth_pos = [0, -0.11, 0.03] if self.human.gender == 'male' else [0, -0.1, 0.03] look into drinking file
+            distance = np.linalg.norm(head_pos_np-wrist_pos_np)
+            reward_human = -distance
+            if distance < self.human_mouth_epsilon:
+                self.phase_of_human=2
+                return reward_human 
+
+        if self.phase_of_human==2:
+            # Human hand is on mouth,
+            # provide reward to move to bowl
+            # bowl pose is self.target_3
+            wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)     
+            wrist_pos_np = np.array(wrist_pos)
+            distance = np.linalg.norm(self.target_3_pose-wrist_pos_np)
+            reward_human = -distance
+            if distance < self.human_bowl_epsilon:
+                self.phase_of_human=1
+
+        return reward_human         
+
+            
 
 
     def step(self, action):
@@ -28,11 +119,11 @@ class JointMotionEnv(AssistiveEnv):
 
         if self.human.controllable:
             action = np.concatenate([action['robot'], action['human']])
-            print(action)
+            #print(action)
         
         #action[4]=500
         #print('Full in JM', action)
-        self.take_step(action*100)
+        self.take_step(action*10)
 
         obs = self._get_obs()
         # print(np.array_str(obs, precision=3, suppress_small=True))
@@ -42,94 +133,43 @@ class JointMotionEnv(AssistiveEnv):
         end_effector_velocity = np.linalg.norm(self.robot.get_velocity(self.robot.left_end_effector))
         preferences_score = self.human_preferences(end_effector_velocity=end_effector_velocity, total_force_on_human=self.total_force_on_human, tool_force_at_target=self.tool_force_at_target)
 
-        tool_pos = self.tool.get_base_pos_orient()[0]
-        reward_distance = -np.linalg.norm(self.target_pos - tool_pos) #Penalize distances away from target
         reward_action = -np.linalg.norm(action) #Penalize actions
         reward_force_scratch = 0.0 #Reward force near the target
 
-        #if self.target_contact_pos is not None and np.linalg.norm(self.target_contact_pos - self.prev_target_contact_pos) > 0.001 and self.tool_force_at_target < 10:
-        #Encourage the robot to move around near the target to simulate scratching
-
-        #Discourage movement only for stretch not for pr2
-        self.robot_current_pose,robo_orient_ = self.robot.get_pos_orient(self.robot.base)
-
-        reward_movement = -1*np.linalg.norm(self.robot_current_pose-self.robot_old_pose)
-        
+        #reward_movement = -1*np.linalg.norm(self.robot_current_pose-self.robot_old_pose)
         #only for pr2 not stretch
         #reward_movement=0
 
-
-        self.robot_old_pose = self.robot_current_pose
-
-        self.robot_current_arm,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
         
-        reward_shake = 0
-        if self.task_success>1:
-            reward_shake = -1*np.linalg.norm(self.robot_current_arm-self.robot_old_arm)
+        # self.robot_current_arm,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+        # reward_shake = 0
+        # if self.task_success>1:
+        #     reward_shake = -1*np.linalg.norm(self.robot_current_arm-self.robot_old_arm)
         
-        self.robot_old_arm = self.robot_current_arm
+        # self.robot_old_arm = self.robot_current_arm
 
 
-        head_pose,head_orient = self.human.get_pos_orient(self.human.head)
-        wrist_pos,wrist_orient = self.human.get_pos_orient(self.human.right_wrist)
-        robot_tool_pos, tool_orient = self.tool.get_base_pos_orient()
-
-
-        if reward_base_direction(head_pose, head_orient, self.robot_current_pose):
-            reward_robot_orientation = 5
-            print('Robot in orientation with human')
-        else:
-            reward_robot_orientation = 0
-
-
-        if reward_tool_direction(wrist_pos, wrist_orient , robot_tool_pos):
-            reward_tool_orientation = 3
-        else:
-            reward_tool_orientation = 0
-        
-
-        #print(self.robot_current_pose)
-        if abs(reward_distance)<self.distance_threshold: #0.03
-            reward_force_scratch = 5
-            self.task_success = 1
-
-        if abs(reward_distance)<self.distance_threshold and self.tool_force_at_target<10: #0.03
-            reward_force_scratch = 5
-            self.task_success =+ 2
-
-        # if self.total_force_on_human>10:
-        #     print('Force on human: ',self.total_force_on_human)
-
-        ######### Generate line 
-        p.removeAllUserDebugItems()
-        head_t_pos,head_t_orient = self.human.get_pos_orient(self.human.head)
-        #self.generate_line(head_t_pos,head_t_orient)
-        wrt_pos,wrt_orient = self.human.get_pos_orient(self.human.right_wrist)
-        #self.generate_line_hand(wrt_pos,wrt_orient,0.3)
-
-        tool_pos, tool_orient = self.tool.get_base_pos_orient()
-        tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient) #useless command
-        #self.generate_line(self.robot_current_pose,robo_orient_)
-        #self.generate_line(tool_pos,tool_orient,0.3)
+        # print(self.tool_force_at_target)
 
 
         ##########
         reward = 0
-        reward = reward_shake + reward_movement +  self.config('distance_weight')*reward_distance + self.config('action_weight')*reward_action + self.config('scratch_reward_weight')*reward_force_scratch + preferences_score
-        reward = reward + self.config('robot_orientation')*reward_robot_orientation + self.config('tool_orientation')*reward_tool_orientation
+        reward = self.config('human_reward')*self.human_reward() + self.config('robot_reward')*self.robot_reward()
+        # reward = reward_shake + reward_movement +  self.config('distance_weight')*reward_distance + self.config('action_weight')*reward_action + self.config('scratch_reward_weight')*reward_force_scratch + preferences_score
+        # reward = reward + self.config('robot_orientation')*reward_robot_orientation + self.config('tool_orientation')*reward_tool_orientation
 
-        self.total_reward=self.total_reward+reward
+        self.total_reward = self.total_reward+reward
         self.prev_target_contact_pos = self.target_contact_pos
 
-        if self.gui and self.tool_force_at_target > 0:
-            print('Task success:', self.task_success, 'Tool force at target:', self.tool_force_at_target, reward_force_scratch)
-            print('Task reward:', self.total_reward)
+        if self.gui and self.iteration > 0:
+            #print('Task success:', self.task_success, 'Tool force at target:', self.tool_force_at_target, reward_force_scratch)
+            print('Iteration:',self.iteration,'Task reward:', self.total_reward)
 
         #info = {'total_force_on_human': self.total_force_on_human, 'task_success': int(self.task_success >= self.config('task_success_threshold')), 'action_robot_len': self.action_robot_len, 'action_human_len': self.action_human_len, 'obs_robot_len': self.obs_robot_len, 'obs_human_len': self.obs_human_len}
         info = {'total_force_on_human': self.total_force_on_human, 'task_success': self.task_success, 'action_robot_len': self.action_robot_len, 'action_human_len': self.action_human_len, 'obs_robot_len': self.obs_robot_len, 'obs_human_len': self.obs_human_len}
         done = self.iteration >= 200
 
-        jt = self.robot.get_joint_angles(indices=self.robot.left_arm_joint_indices)
+        #jt = self.robot.get_joint_angles(indices=self.robot.left_arm_joint_indices)
         #print('robot joint angles',jt)
 
         if not self.human.controllable:
@@ -138,68 +178,6 @@ class JointMotionEnv(AssistiveEnv):
             # Co-optimization with both human and robot controllable
             return obs, {'robot': reward, 'human': reward}, {'robot': done, 'human': done, '__all__': done}, {'robot': info, 'human': info}
 
-
-
-
-    def generate_line(self, pos, orient, lineLen=1.5):
-        
-        mat = p.getMatrixFromQuaternion(orient)
-        dir0 = [mat[0], mat[3], mat[6]]
-        dir1 = [mat[1], mat[4], mat[7]]
-        dir2 = [mat[2], mat[5], mat[8]]
-        
-        # works only for hand 0.25 linelen
-        #dir2_neg = [-mat[2], -mat[5], -mat[8]]
-        #to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
-        #to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
-        
-        # works only for head  1.5 linlen
-        dir2_neg = [-mat[1], -mat[4], -mat[7]]
-        to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
-        to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
-        
-        toX = [pos[0] + lineLen * dir0[0], pos[1] + lineLen * dir0[1], pos[2] + lineLen * dir0[2]]
-        toY = [pos[0] + lineLen * dir1[0], pos[1] + lineLen * dir1[1], pos[2] + lineLen * dir1[2]]
-        toZ = [pos[0] + lineLen * dir2[0], pos[1] + lineLen * dir2[1], pos[2] + lineLen * dir2[2]]
-        
-        p.addUserDebugLine(pos, toX, [1, 0, 0], 5)
-        p.addUserDebugLine(pos, toY, [0, 1, 0], 5)
-        p.addUserDebugLine(pos, toZ, [0, 0, 1], 5)
-
-        p.addUserDebugLine(pos, to1, [0, 1, 1], 5, 3)
-        p.addUserDebugLine(pos, to2, [0, 1, 1], 5, 3)
-        p.addUserDebugLine(to2, to1, [0, 1, 1], 5, 3)
-
-
-
-    def generate_line_hand(self, pos, orient, lineLen=1.5):
-        
-        mat = p.getMatrixFromQuaternion(orient)
-        dir0 = [mat[0], mat[3], mat[6]]
-        dir1 = [mat[1], mat[4], mat[7]]
-        dir2 = [mat[2], mat[5], mat[8]]
-        
-        # works only for hand 0.25 linelen
-        dir2_neg = [-mat[2], -mat[5], -mat[8]]
-        to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
-        to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
-        
-        # works only for head  1.5 linlen
-        # dir2_neg = [-mat[1], -mat[4], -mat[7]]
-        # to1 = [pos[0] + lineLen * (dir2_neg[0]+dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]+dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
-        # to2 = [pos[0] + lineLen * (dir2_neg[0]-dir0[0])/2, pos[1] + lineLen * (dir2_neg[1]-dir0[1])/2, pos[2] + lineLen * (dir2_neg[2]+dir0[2])/2 ]
-        
-        toX = [pos[0] + lineLen * dir0[0], pos[1] + lineLen * dir0[1], pos[2] + lineLen * dir0[2]]
-        toY = [pos[0] + lineLen * dir1[0], pos[1] + lineLen * dir1[1], pos[2] + lineLen * dir1[2]]
-        toZ = [pos[0] + lineLen * dir2[0], pos[1] + lineLen * dir2[1], pos[2] + lineLen * dir2[2]]
-        
-        p.addUserDebugLine(pos, toX, [1, 0, 0], 5)
-        p.addUserDebugLine(pos, toY, [0, 1, 0], 5)
-        p.addUserDebugLine(pos, toZ, [0, 0, 1], 5)
-
-        p.addUserDebugLine(pos, to1, [0, 1, 1], 5, 3)
-        p.addUserDebugLine(pos, to2, [0, 1, 1], 5, 3)
-        p.addUserDebugLine(to2, to1, [0, 1, 1], 5, 3)
 
 
 
@@ -247,7 +225,7 @@ class JointMotionEnv(AssistiveEnv):
             return robot_obs
         if self.human.controllable:
             human_joint_angles = self.human.get_joint_angles(self.human.controllable_joint_indices)
-            print("human:", human_joint_angles)
+            #print("human:", human_joint_angles)
             tool_pos_human, tool_orient_human = self.human.convert_to_realworld(tool_pos, tool_orient)
             shoulder_pos_human, _ = self.human.convert_to_realworld(shoulder_pos)
             elbow_pos_human, _ = self.human.convert_to_realworld(elbow_pos)
@@ -384,13 +362,15 @@ class JointMotionEnv(AssistiveEnv):
         arm_pos, arm_orient = self.human.get_pos_orient(self.limb)
         target_pos, target_orient = p.multiplyTransforms(arm_pos, arm_orient, self.target_on_arm, [0, 0, 0, 1], physicsClientId=self.id)
 
-        self.target = self.create_sphere(radius=0.02, mass=0.0, pos=target_pos, visual=True, collision=False, rgba=[0, 1, 1, 1])
+        self.target = self.create_sphere(radius=0.02, mass=0.0, pos=target_pos, visual=True, collision=False, rgba=[0, 1, 1, 1]) #human hand
         print('Target pose 1', target_pos)
         target_pos_2 = [+0.115, -0.45, 0.73]
-        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_2, visual=True, collision=False, rgba=[1, 0, 1, 1])
+        self.target_2_pose = np.array(target_pos_2) 
+        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_2, visual=True, collision=False, rgba=[1, 0, 1, 1])# pink robot,cup
         
         target_pos_3 = [-0.07, -0.41, 0.73]
-        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_3, visual=True, collision=False, rgba=[0, 1, 1, 1])
+        self.target_3_pose = np.array(target_pos_3) 
+        self.create_sphere(radius=0.02, mass=0.0, pos=target_pos_3, visual=True, collision=False, rgba=[0, 1, 1, 1])# cyan bowl
         #self.create_sphere(radius=0.1, mass=0.0, pos=arm_pos, visual=True, collision=False, rgba=[0, 0, 1, 1])
 
         self.update_targets()
