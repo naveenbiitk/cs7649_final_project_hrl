@@ -15,7 +15,6 @@ from .util import reward_tool_direction
 #from .util import generate_line
 #from .util import generate_line_hand
 
-
 class JointMotionEnv(AssistiveEnv):
 
     def __init__(self, robot, human):
@@ -29,6 +28,7 @@ class JointMotionEnv(AssistiveEnv):
 
         if self.human.controllable:
             action = np.concatenate([action['robot'], action['human']])
+            print(action)
         
         #action[4]=500
         #print('Full in JM', action)
@@ -247,6 +247,7 @@ class JointMotionEnv(AssistiveEnv):
             return robot_obs
         if self.human.controllable:
             human_joint_angles = self.human.get_joint_angles(self.human.controllable_joint_indices)
+            print("human:", human_joint_angles)
             tool_pos_human, tool_orient_human = self.human.convert_to_realworld(tool_pos, tool_orient)
             shoulder_pos_human, _ = self.human.convert_to_realworld(shoulder_pos)
             elbow_pos_human, _ = self.human.convert_to_realworld(elbow_pos)
@@ -275,6 +276,20 @@ class JointMotionEnv(AssistiveEnv):
 
         joints_positions = [(self.human.j_right_elbow, -90), (self.human.j_left_elbow, -90), (self.human.j_right_hip_x, -90), (self.human.j_right_knee, 80), (self.human.j_left_hip_x, -90), (self.human.j_left_knee, 80)]
         joints_positions += [(self.human.j_head_x, -self.np_random.uniform(0, 10)), (self.human.j_head_y, -self.np_random.uniform(0, 10)), (self.human.j_head_z, -self.np_random.uniform(0, 10))]
+        
+        # j_right_pecs_x, j_right_pecs_y, j_right_pecs_z, j_right_shoulder_x, j_right_shoulder_y, j_right_shoulder_z, j_right_elbow, j_right_forearm, j_right_wrist_x, j_right_wrist_y
+        # human_start = [-1.43457602e-02,  4.88734760e-04,  5.31665415e-01,  1.34692067e-01, -9.64689935e-02, -2.42673015e-01, -1.64185327e+00,  2.51781710e-02,  6.91561229e-03,  1.17776584e-01]
+        right_joint_list = [self.human.j_right_pecs_x, self.human.j_right_pecs_y, self.human.j_right_pecs_z,self.human.j_right_shoulder_x,self.human.j_right_shoulder_y, self.human.j_right_shoulder_z, self.human.j_right_elbow, self.human.j_right_forearm, self.human.j_right_wrist_x, self.human.j_right_wrist_y]
+        
+        # start
+        right_arm_angles = [0.0,  0.0,  5.31665415e-01,  1.34692067e-01, -9.64689935e-02, -2.42673015e-01, -1.64185327e+00,  0.0,  0.0,  0.0]
+        
+        #end
+        # right_arm_angles = [0.0,  0.0, 0.0,  0.6285238,  -1.2184946,   0.0,  -2.2070327,  0.0, 0.0, 0.0]
+
+        right_arm_pos = [(right_joint_list[i], right_arm_angles[i]*180/np.pi) for i in range(len(right_joint_list))]
+        joints_positions += right_arm_pos
+       
         self.human.setup_joints(joints_positions, use_static_joints=True, reactive_force=None)
 
         chest_pos, chest_orient = self.human.get_pos_orient(self.human.stomach)
@@ -298,8 +313,8 @@ class JointMotionEnv(AssistiveEnv):
         target_ee_orient = self.get_quaternion(self.robot.toc_ee_orient_rpy[self.task])
         #self.init_robot_pose(target_ee_pos, target_ee_orient, [(target_ee_pos, target_ee_orient), (self.target_pos, None)], [(self.target_pos, target_ee_orient)], arm='right', tools=[self.tool], collision_objects=[self.human, self.furniture])
 
-        # pos = [-0.625, -0.5, 0.1]
-        pos = [-1.825, -0.5, 0.1]
+        pos = [-0.625, -0.5, 0.1]
+        # pos = [-1.825, -0.5, 0.1]
         orient = [0, 0, np.pi / 2.0]
         self.robot.set_base_pos_orient(pos, orient)
         self.robot.randomize_init_joint_angles(self.task)

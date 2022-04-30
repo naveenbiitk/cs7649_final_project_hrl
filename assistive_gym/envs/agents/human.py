@@ -8,7 +8,10 @@ right_leg_joints = [28, 29, 30, 31, 32, 33, 34]
 left_leg_joints = [35, 36, 37, 38, 39, 40, 41]
 head_joints = [20, 21, 22, 23]
 # motion_right_arm_joints = [2, 6, 1]
-motion_right_arm_joints = [1, 2, 4, 5, 6, 7]
+# motion_right_arm_joints = [1, 2, 4, 5, 6, 7]
+# [right_shoulder_z, right_elbow]
+# motion_right_arm_joints = [5, 7]
+motion_right_arm_joints = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 class Human(Agent):
     def __init__(self, controllable_joint_indices, controllable=False):
