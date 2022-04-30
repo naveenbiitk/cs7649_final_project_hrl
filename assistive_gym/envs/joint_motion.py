@@ -18,7 +18,7 @@ from .util import reward_tool_direction
 class JointMotionEnv(AssistiveEnv):
 
     def __init__(self, robot, human):
-        super(JointMotionEnv, self).__init__(robot=robot, human=human, task='joint_motion', obs_robot_len=(23 + len(robot.controllable_joint_indices) - (len(robot.wheel_joint_indices) if robot.mobile else 0)), obs_human_len=(24 + len(human.controllable_joint_indices)))
+        super(JointMotionEnv, self).__init__(robot=robot, human=human, task='joint_motion', obs_robot_len=(24), obs_human_len=(19))
         self.phase_of_robot=1
         self.phase_of_human=1
         self.robot_grab_cup_epsilon=0.1
@@ -52,11 +52,16 @@ class JointMotionEnv(AssistiveEnv):
 
         if self.phase_of_robot==2:
             # Place cup at target pose 2
-            # provide reward to move to bowl
+            # provide reward to move to robot end effector with cup to target pose
             # bowl pose is self.target_3
+            cup_pos, cup_orient = self.tool.get_base_pos_orient()
+            cup_pos, cup_orient = p.multiplyTransforms(cup_pos, cup_orient, [0, 0.06, 0], self.get_quaternion([np.pi/2.0, 0, 0]), physicsClientId=self.id)
+            cup_top_center_pos, _ = p.multiplyTransforms(cup_pos, cup_orient, self.cup_top_center_offset, [0, 0, 0, 1], physicsClientId=self.id)
+         
+
             robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
             robo_wrist_pos_np = np.array(robot_wrist_pos)
-            distance = np.linalg.norm(self.target_2_pose-robo_wrist_pos_np)
+            distance = np.linalg.norm(self.target_2_pose-cup_top_center_pos)
             
             reward_robot = -distance
             if distance < self.cup_target_epsilon:
@@ -65,7 +70,7 @@ class JointMotionEnv(AssistiveEnv):
 
         if self.phase_of_robot==3:
             # Move out of the way, so human can continue their motion
-            # provide reward to move to bowl
+            # provide reward for 
             # bowl pose is self.target_3
             wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)     
             wrist_pos_np = np.array(wrist_pos)
@@ -196,6 +201,13 @@ class JointMotionEnv(AssistiveEnv):
 
 
 
+# robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+# cup_pos, cup_orient = self.tool.get_base_pos_orient()
+# self.phase_of_robot
+# wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)
+# self.robot.get_joint_angles(5)
+
+
     def _get_obs(self, agent=None):
         tool_pos, tool_orient = self.tool.get_base_pos_orient()
         tool_pos_real, tool_orient_real = self.robot.convert_to_realworld(tool_pos, tool_orient)
@@ -206,34 +218,37 @@ class JointMotionEnv(AssistiveEnv):
             # Don't include joint angles for the wheels
             robot_joint_angles = robot_joint_angles[len(self.robot.wheel_joint_indices):]
         
+        robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+        robot_base_pos,robot_orientation = self.robot.get_pos_orient(self.robot.base)
 
-        shoulder_pos = self.human.get_pos_orient(self.human.right_shoulder)[0]#5upperarm   agym_jt[6,:] 
-        elbow_pos = self.human.get_pos_orient(self.human.right_elbow)[0]#7forearm          agym_jt[8,:]
+        robot_base_angle = self.robot.get_euler(robot_orientation)
+
         wrist_pos = self.human.get_pos_orient(self.human.right_wrist)[0]#9j_right_wrist_x  agym_jt[10,:]  
 
-        shoulder_pos_real, _ = self.robot.convert_to_realworld(shoulder_pos)
-        elbow_pos_real, _ = self.robot.convert_to_realworld(elbow_pos)
         wrist_pos_real, _ = self.robot.convert_to_realworld(wrist_pos)
-        target_pos_real, _ = self.robot.convert_to_realworld(self.target_pos)
 
-        #human_pose_predicted = self.call_bp_cb()
-        #print("Human pose predicted", shoulder_pos- human_pose_predicted[6] )
+        target_pos_real, _ = self.robot.convert_to_realworld(self.target_pos)
+        target_pos_real_2, _ = self.robot.convert_to_realworld(self.target_2_pose)
+        target_pos_real_3, _ = self.robot.convert_to_realworld(self.target_3_pose)
+
 
         self.total_force_on_human, self.tool_force, self.tool_force_at_target, self.target_contact_pos = self.get_total_force()
-        robot_obs = np.concatenate([tool_pos_real, tool_orient_real, tool_pos_real - target_pos_real, target_pos_real, robot_joint_angles, shoulder_pos_real, elbow_pos_real, wrist_pos_real, [self.tool_force]]).ravel()
+        #print(np.array([self.iteration, self.phase_of_robot, self.total_force_on_human]),robot_wrist_pos,robot_base_angle, tool_pos_real, tool_pos_real - self.target_2_pose, target_pos_real_2,target_pos_real_3, robot_joint_angles, wrist_pos_real)
+        robot_obs = np.concatenate([np.array([self.iteration, self.phase_of_robot, self.total_force_on_human]),robot_base_angle, tool_pos_real, tool_pos_real - self.target_2_pose, target_pos_real_2,target_pos_real_3, robot_joint_angles, wrist_pos_real]).ravel()
+        #print('Robot obs space', len(robot_obs))
         if agent == 'robot':
+            
             return robot_obs
         if self.human.controllable:
             human_joint_angles = self.human.get_joint_angles(self.human.controllable_joint_indices)
-            #print("human:", human_joint_angles)
-            tool_pos_human, tool_orient_human = self.human.convert_to_realworld(tool_pos, tool_orient)
-            shoulder_pos_human, _ = self.human.convert_to_realworld(shoulder_pos)
-            elbow_pos_human, _ = self.human.convert_to_realworld(elbow_pos)
+            robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+            wrist_pos = self.human.get_pos_orient(self.human.right_wrist)[0]
             wrist_pos_human, _ = self.human.convert_to_realworld(wrist_pos)
-            target_pos_human, _ = self.human.convert_to_realworld(self.target_pos)
-            human_obs = np.concatenate([tool_pos_human, tool_orient_human, tool_pos_human - target_pos_human, target_pos_human, human_joint_angles, shoulder_pos_human, elbow_pos_human, wrist_pos_human, [self.total_force_on_human, self.tool_force_at_target]]).ravel()
+ 
+            human_obs = np.concatenate([np.array([self.iteration, self.phase_of_robot, self.total_force_on_human]), human_joint_angles,robot_wrist_pos, wrist_pos_human]).ravel()
             if agent == 'human':
                 return human_obs
+            #print('humNS obs space', len(human_obs))
             # Co-optimization with both human and robot controllable
             return {'robot': robot_obs, 'human': human_obs}
         return robot_obs
