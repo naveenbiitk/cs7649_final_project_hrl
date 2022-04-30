@@ -15,6 +15,7 @@ env = make_env(env_name, coop=True)
 #env = gym.make()
 env.render()
 observation = env.reset()
+observation= np.concatenate((observation['robot'], observation['human']))
 env.robot.print_joint_info()
 
 
@@ -71,15 +72,16 @@ print("The preprocessor is", prep)
 
 for eps_id in range(1):
     obs = env.reset()
-    print("OBS: ", obs)
+    # print("OBS: ", obs)
     obs= np.concatenate((obs['robot'], obs['human']))
-    print("OBS: ", obs)
+    # print("OBS: ", obs)
 
     prev_action = np.zeros_like(env.action_space.sample())
     prev_reward = 0
-    done = False
+    done = {'robot':False, 'human':False}
     t = 0
-    while (not done) and (t < 150):
+    # while (not done) and (t < 150):
+    while (not done['robot']) and (not done['human']) and (t < 200):
         env.render()
         human_action = np.zeros(env.action_human_len)
         keys = p.getKeyboardEvents()
@@ -93,14 +95,14 @@ for eps_id in range(1):
             if key in keys and keys[key] & p.KEY_IS_DOWN:
                 robot_action += a
 
-        final_action =  {'robot': robot_action*100, 'human': human_action*20}
+        final_action =  {'robot': robot_action*0.25, 'human': human_action*20}
 
         # observation, reward, done, info = env.step(action*100)
 
         new_obs, rew, done, info = env.step(final_action)
-        print("NEW_OBS: ", new_obs)
+        # print("NEW_OBS: ", new_obs)
         new_obs=np.concatenate((new_obs['robot'], new_obs['human']))
-        print("NEW_OBS: ", new_obs)
+        # print("NEW_OBS: ", new_obs)
 
 
         batch_builder.add_values(
