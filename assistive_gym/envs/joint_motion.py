@@ -91,7 +91,9 @@ class JointMotionEnv(AssistiveEnv):
 
         cup_wrist_dist = np.linalg.norm(np.array(cup_top_center_pos)-robo_wrist_pos_np)
         cup_goal_dist = np.linalg.norm(self.target_2_pose-cup_top_center_pos)
-        reward_robot = -self.config('distance_weight')*(cup_wrist_dist + cup_goal_dist) 
+        reward_robot = -self.config('distance_weight')*(cup_wrist_dist + cup_goal_dist)
+        if self.get_total_force()[0] > 0:
+            reward_robot += -100
 
         return reward_robot         
 
