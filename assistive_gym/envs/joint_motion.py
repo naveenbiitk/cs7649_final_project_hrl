@@ -14,6 +14,7 @@ from .util import reward_base_direction
 from .util import reward_tool_direction
 #from .util import generate_line
 #from .util import generate_line_hand
+from scipy.spatial.transform import Rotation
 
 class JointMotionEnv(AssistiveEnv):
 
@@ -92,12 +93,30 @@ class JointMotionEnv(AssistiveEnv):
         cup_wrist_dist = np.linalg.norm(np.array(cup_top_center_pos)-robo_wrist_pos_np)
         cup_goal_dist = np.linalg.norm(self.target_2_pose-cup_top_center_pos)
         reward_robot = -self.config('distance_weight')*(cup_wrist_dist + cup_goal_dist)
+        # if hit human
         if self.get_total_force()[0] > 0:
             reward_robot += -10
-        if self.get_total_force()[1] > 5 and cup_wrist_dist < 0.1:
-            reward_robot += 5
-        print(self.get_total_force()[1])
-        print(cup_wrist_dist)
+        # if gripping cup and cup not at goal
+        if self.get_total_force()[1] > 4 and self.get_total_force()[1] < 7 and cup_wrist_dist < 0.1 and cup_goal_dist > 0.125:
+            reward_robot += 50
+
+        if cup_goal_dist < 0.125:
+            reward_robot += 75
+            reward_robot += cup_wrist_dist*50
+
+        cup_angles = Rotation.from_quat(cup_orient)
+        cup_angles = cup_angles.as_euler('xyz', degrees=True)
+
+        # avoiding spills
+        if abs(cup_angles[0]) < 135:
+            reward_robot += -25
+
+        # while self.get_total_force()[1] > 4 and self.get_total_force()[1] < 7 and cup_wrist_dist < 0.1 and cup_goal_dist > 0.1:
+        #     count +=1
+        #     if count > 5:
+        #         reward_robot += 10
+
+
 
         return reward_robot         
 
@@ -128,6 +147,7 @@ class JointMotionEnv(AssistiveEnv):
             reward_human = -self.config('distance_weight')*distance
             if distance < self.human_bowl_epsilon:
                 self.phase_of_human=1
+                return reward_human + 100
 
         return reward_human         
 
