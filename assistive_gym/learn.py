@@ -16,9 +16,9 @@ def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
         config['train_batch_size'] = 19200
         config['num_sgd_iter'] = 50
         config['sgd_minibatch_size'] = 128
-        config['lambda'] = 0.95
+        config['lambda'] = 0.99
         config['model']['fcnet_hiddens'] = [100, 100]
-        config['lr'] = 1e-5 # default = 5e-5
+        config['lr'] = 5e-5 # default = 5e-5
     elif algo == 'sac':
         # NOTE: pip3 install tensorflow_probability
         config = sac.DEFAULT_CONFIG.copy()
@@ -51,6 +51,7 @@ def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
         config['model']['fcnet_hiddens'] = [32,16]
 
         config["lr"]: 1e-4
+
         # config["lr"]: tune.grid_search([0.01, 0.001, 0.0001])
 
         # expert demonstration

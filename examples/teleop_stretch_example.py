@@ -73,7 +73,7 @@ while True:
             robot_action += a
 
     if coop:
-        final_action =  {'robot': robot_action*100, 'human': human_action*20}
+        final_action =  {'robot': robot_action*10, 'human': human_action*10}
     else:
         final_action = robot_action
 

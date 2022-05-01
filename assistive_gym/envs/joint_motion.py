@@ -21,9 +21,8 @@ class JointMotionEnv(AssistiveEnv):
         super(JointMotionEnv, self).__init__(robot=robot, human=human, task='joint_motion', obs_robot_len=(24), obs_human_len=(19))
         self.phase_of_robot=1
         self.phase_of_human=1
-        self.robot_grab_cup_epsilon=0.1
-        self.cup_target_epsilon=0.1
-        self.human_bowl_epsilon=0.1
+        self.robot_grab_cup_epsilon=0.05
+        self.cup_target_epsilon=0.05
         self.human_mouth_epsilon=0.1
         self.human_bowl_epsilon=0.1
         self.cup_top_center_offset = np.array([0, 0, -0.055])
@@ -32,56 +31,67 @@ class JointMotionEnv(AssistiveEnv):
 
     def robot_reward(self):
 
-        if self.phase_of_robot==1:
-            #Grab cup at start position
-            #provide reward to move to cup
+        # if self.phase_of_robot==1:
+        #     #Grab cup at start position
+        #     #provide reward to move to cup
 
-            robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
-            robo_wrist_pos_np = np.array(robot_wrist_pos)
+        #     robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+        #     robo_wrist_pos_np = np.array(robot_wrist_pos)
 
-            cup_pos, cup_orient = self.tool.get_base_pos_orient()
-            cup_pos, cup_orient = p.multiplyTransforms(cup_pos, cup_orient, [0, 0.06, 0], self.get_quaternion([np.pi/2.0, 0, 0]), physicsClientId=self.id)
-            cup_top_center_pos, _ = p.multiplyTransforms(cup_pos, cup_orient, self.cup_top_center_offset, [0, 0, 0, 1], physicsClientId=self.id)
+        #     cup_pos, cup_orient = self.tool.get_base_pos_orient()
+        #     cup_pos, cup_orient = p.multiplyTransforms(cup_pos, cup_orient, [0, 0.06, 0], self.get_quaternion([np.pi/2.0, 0, 0]), physicsClientId=self.id)
+        #     cup_top_center_pos, _ = p.multiplyTransforms(cup_pos, cup_orient, self.cup_top_center_offset, [0, 0, 0, 1], physicsClientId=self.id)
             
-            distance = np.linalg.norm(np.array(cup_top_center_pos)-robo_wrist_pos_np)
+        #     distance = np.linalg.norm(np.array(cup_top_center_pos)-robo_wrist_pos_np)
     
-            reward_robot = -distance
-            if distance < self.robot_grab_cup_epsilon:
-                self.phase_of_robot = 2
-                return reward_robot 
+        #     reward_robot = -self.config('distance_weight')*distance
+        #     if distance < self.robot_grab_cup_epsilon:
+        #         self.phase_of_robot = 2
+        #         return reward_robot + 100
 
-        if self.phase_of_robot==2:
-            # Place cup at target pose 2
-            # provide reward to move to robot end effector with cup to target pose
-            # bowl pose is self.target_3
-            cup_pos, cup_orient = self.tool.get_base_pos_orient()
-            cup_pos, cup_orient = p.multiplyTransforms(cup_pos, cup_orient, [0, 0.06, 0], self.get_quaternion([np.pi/2.0, 0, 0]), physicsClientId=self.id)
-            cup_top_center_pos, _ = p.multiplyTransforms(cup_pos, cup_orient, self.cup_top_center_offset, [0, 0, 0, 1], physicsClientId=self.id)
+        # if self.phase_of_robot==2:
+        #     # Place cup at target pose 2
+        #     # provide reward to move to robot end effector with cup to target pose
+        #     # bowl pose is self.target_3
+        #     cup_pos, cup_orient = self.tool.get_base_pos_orient()
+        #     cup_pos, cup_orient = p.multiplyTransforms(cup_pos, cup_orient, [0, 0.06, 0], self.get_quaternion([np.pi/2.0, 0, 0]), physicsClientId=self.id)
+        #     cup_top_center_pos, _ = p.multiplyTransforms(cup_pos, cup_orient, self.cup_top_center_offset, [0, 0, 0, 1], physicsClientId=self.id)
          
 
-            robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
-            robo_wrist_pos_np = np.array(robot_wrist_pos)
-            distance = np.linalg.norm(self.target_2_pose-cup_top_center_pos)
+        #     robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+        #     robo_wrist_pos_np = np.array(robot_wrist_pos)
+        #     distance = np.linalg.norm(self.target_2_pose-cup_top_center_pos)
             
-            reward_robot = -distance
-            if distance < self.cup_target_epsilon:
-                self.phase_of_robot = 3
-                return reward_robot 
+        #     reward_robot = -self.config('distance_weight')*distance
+        #     if distance < self.cup_target_epsilon:
+        #         self.phase_of_robot = 3
+        #         return reward_robot + 100
 
-        if self.phase_of_robot==3:
-            # Move out of the way, so human can continue their motion
-            # provide reward for 
-            # bowl pose is self.target_3
-            wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)     
-            wrist_pos_np = np.array(wrist_pos)
-            distance = np.linalg.norm(self.target_3_pose-wrist_pos_np)
+        # if self.phase_of_robot==3:
+        #     # Move out of the way, so human can continue their motion
+        #     # provide reward for 
+        #     # bowl pose is self.target_3
+        #     wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)     
+        #     wrist_pos_np = np.array(wrist_pos)
+        #     distance = np.linalg.norm(self.target_3_pose-wrist_pos_np)
             
-            wrist_reduction = -self.robot.get_joint_angles(5)  #stretch try with 6,7,8 also
+        #     wrist_reduction = -self.robot.get_joint_angles([5])  #stretch try with 6,7,8 also
 
-            reward_human = distance + wrist_reduction
+        #     reward_robot = self.config('distance_weight')*distance + float(wrist_reduction)
 
-            if distance < self.human_bowl_epsilon:
-                self.task_success = 1
+            # if distance < self.human_bowl_epsilon:
+            #     self.task_success = 1
+
+        robot_wrist_pos,_orient_ = self.robot.get_pos_orient(self.robot.left_end_effector)
+        robo_wrist_pos_np = np.array(robot_wrist_pos)
+
+        cup_pos, cup_orient = self.tool.get_base_pos_orient()
+        cup_pos, cup_orient = p.multiplyTransforms(cup_pos, cup_orient, [0, 0.06, 0], self.get_quaternion([np.pi/2.0, 0, 0]), physicsClientId=self.id)
+        cup_top_center_pos, _ = p.multiplyTransforms(cup_pos, cup_orient, self.cup_top_center_offset, [0, 0, 0, 1], physicsClientId=self.id)
+
+        cup_wrist_dist = np.linalg.norm(np.array(cup_top_center_pos)-robo_wrist_pos_np)
+        cup_goal_dist = np.linalg.norm(self.target_2_pose-cup_top_center_pos)
+        reward_robot = -self.config('distance_weight')*(cup_wrist_dist + cup_goal_dist) 
 
         return reward_robot         
 
@@ -97,10 +107,10 @@ class JointMotionEnv(AssistiveEnv):
             head_pos_np = np.array(head_pos)
             #mouth_pos = [0, -0.11, 0.03] if self.human.gender == 'male' else [0, -0.1, 0.03] look into drinking file
             distance = np.linalg.norm(head_pos_np-wrist_pos_np)
-            reward_human = -distance
+            reward_human = -self.config('distance_weight')*distance
             if distance < self.human_mouth_epsilon:
                 self.phase_of_human=2
-                return reward_human 
+                return reward_human + 100
 
         if self.phase_of_human==2:
             # Human hand is on mouth,
@@ -109,7 +119,7 @@ class JointMotionEnv(AssistiveEnv):
             wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)     
             wrist_pos_np = np.array(wrist_pos)
             distance = np.linalg.norm(self.target_3_pose-wrist_pos_np)
-            reward_human = -distance
+            reward_human = -self.config('distance_weight')*distance
             if distance < self.human_bowl_epsilon:
                 self.phase_of_human=1
 
@@ -128,7 +138,7 @@ class JointMotionEnv(AssistiveEnv):
         
         #action[4]=500
         #print('Full in JM', action)
-        self.take_step(action*10)
+        self.take_step(action*1)
 
         obs = self._get_obs()
         # print(np.array_str(obs, precision=3, suppress_small=True))
@@ -159,7 +169,7 @@ class JointMotionEnv(AssistiveEnv):
 
         ##########
         reward = 0
-        reward = self.config('human_reward')*self.human_reward() + self.config('robot_reward')*self.robot_reward()
+        reward = self.config('human_reward')*self.human_reward() + self.config('robot_reward')*self.robot_reward() + self.config('action_weight')*reward_action
         # reward = reward_shake + reward_movement +  self.config('distance_weight')*reward_distance + self.config('action_weight')*reward_action + self.config('scratch_reward_weight')*reward_force_scratch + preferences_score
         # reward = reward + self.config('robot_orientation')*reward_robot_orientation + self.config('tool_orientation')*reward_tool_orientation
 
@@ -169,6 +179,7 @@ class JointMotionEnv(AssistiveEnv):
         if self.gui and self.iteration > 0:
             #print('Task success:', self.task_success, 'Tool force at target:', self.tool_force_at_target, reward_force_scratch)
             print('Iteration:',self.iteration,'Task reward:', self.total_reward)
+            print('Current Reward: ', reward)
 
         #info = {'total_force_on_human': self.total_force_on_human, 'task_success': int(self.task_success >= self.config('task_success_threshold')), 'action_robot_len': self.action_robot_len, 'action_human_len': self.action_human_len, 'obs_robot_len': self.obs_robot_len, 'obs_human_len': self.obs_human_len}
         info = {'total_force_on_human': self.total_force_on_human, 'task_success': self.task_success, 'action_robot_len': self.action_robot_len, 'action_human_len': self.action_human_len, 'obs_robot_len': self.obs_robot_len, 'obs_human_len': self.obs_human_len}

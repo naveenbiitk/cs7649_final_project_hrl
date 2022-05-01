@@ -249,8 +249,8 @@ class AssistiveEnv(gym.Env):
                 self.update_targets()
                 if self.gui:
                     # Slow down time so that the simulation matches real time
-                    pass
-                    #self.slow_time()
+                    # pass
+                    self.slow_time()
 
 
     def human_preferences(self, end_effector_velocity=0, total_force_on_human=0, tool_force_at_target=0, food_hit_human_reward=0, food_mouth_velocities=[], dressing_forces=[[]], arm_manipulation_tool_forces_on_human=[0, 0], arm_manipulation_total_force_on_human=0):
