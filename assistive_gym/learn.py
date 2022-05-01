@@ -134,7 +134,7 @@ def setup_config(env, algo, coop=False, seed=0, extra_configs={}):
         # Number of steps to read before learning starts.
         config["learning_starts"] = 0
         
-    config['num_workers'] = num_processes // 2
+    config['num_workers'] = num_processes * 2 // 3
     # config['num_workers'] = 1
     config['num_cpus_per_worker'] = 0
     config['seed'] = seed
