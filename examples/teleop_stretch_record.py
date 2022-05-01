@@ -95,7 +95,7 @@ for eps_id in range(1):
             if key in keys and keys[key] & p.KEY_IS_DOWN:
                 robot_action += a
 
-        final_action =  {'robot': robot_action*5, 'human': human_action*10}
+        final_action =  {'robot': robot_action*20, 'human': human_action*80}
 
         # observation, reward, done, info = env.step(action*100)
 

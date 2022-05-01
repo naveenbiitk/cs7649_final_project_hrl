@@ -24,7 +24,7 @@ class JointMotionEnv(AssistiveEnv):
         self.phase_of_human=1
         self.robot_grab_cup_epsilon=0.05
         self.cup_target_epsilon=0.05
-        self.human_mouth_epsilon=0.1
+        self.human_mouth_epsilon=0.2
         self.human_bowl_epsilon=0.1
         self.cup_top_center_offset = np.array([0, 0, -0.055])
         self.cup_bottom_center_offset = np.array([0, 0, 0.07])
@@ -108,15 +108,17 @@ class JointMotionEnv(AssistiveEnv):
         cup_angles = cup_angles.as_euler('xyz', degrees=True)
 
         # avoiding spills
-        if abs(cup_angles[0]) < 135:
-            reward_robot += -25
+        # if abs(cup_angles[0]) < 135:
+        #     reward_robot += -15
 
         # while self.get_total_force()[1] > 4 and self.get_total_force()[1] < 7 and cup_wrist_dist < 0.1 and cup_goal_dist > 0.1:
         #     count +=1
         #     if count > 5:
         #         reward_robot += 10
 
-
+        # print("left:", self.get_total_force()[4])
+        # print("right: ", self.get_total_force()[5])
+        # print("tool: ", self.tool.get_contact_points())
 
         return reward_robot         
 
@@ -130,12 +132,16 @@ class JointMotionEnv(AssistiveEnv):
             wrist_pos_np = np.array(wrist_pos)
             head_pos, head_orient = self.human.get_pos_orient(self.human.head)
             head_pos_np = np.array(head_pos)
+            head_pos = head_pos + np.array([0,-0.15,0.05])
+            self.create_sphere(radius=0.02, mass=0.0, pos=head_pos, visual=True, collision=False, rgba=[0, 1, 1, 1])
             #mouth_pos = [0, -0.11, 0.03] if self.human.gender == 'male' else [0, -0.1, 0.03] look into drinking file
             distance = np.linalg.norm(head_pos_np-wrist_pos_np)
             reward_human = -self.config('distance_weight')*distance
+            print(distance)
+
             if distance < self.human_mouth_epsilon:
                 self.phase_of_human=2
-                return reward_human + 100
+                return reward_human + 500
 
         if self.phase_of_human==2:
             # Human hand is on mouth,
@@ -144,10 +150,11 @@ class JointMotionEnv(AssistiveEnv):
             wrist_pos, wrist_orient = self.human.get_pos_orient(self.human.right_wrist)     
             wrist_pos_np = np.array(wrist_pos)
             distance = np.linalg.norm(self.target_3_pose-wrist_pos_np)
+            print(distance)
             reward_human = -self.config('distance_weight')*distance
             if distance < self.human_bowl_epsilon:
                 self.phase_of_human=1
-                return reward_human + 100
+                return reward_human + 500
 
         return reward_human         
 
@@ -226,6 +233,9 @@ class JointMotionEnv(AssistiveEnv):
     def get_total_force(self):
         total_force_on_human = np.sum(self.robot.get_contact_points(self.human)[-1])
         tool_force = np.sum(self.tool.get_contact_points()[-1])
+        # tool_force_left = np.sum(self.tool_right.get_contact_points()[-1])
+        # tool_force_right = np.sum(self.tool_right.get_contact_points()[-1])
+
         tool_force_at_target = 0
         target_contact_pos = None
         for linkA, linkB, posA, posB, force in zip(*self.tool.get_contact_points(self.human)):
@@ -234,7 +244,7 @@ class JointMotionEnv(AssistiveEnv):
             if linkA in [0, 1] and np.linalg.norm(posB - self.target_pos) < self.distance_threshold:
                 tool_force_at_target += force
                 target_contact_pos = posB
-        return total_force_on_human, tool_force, tool_force_at_target, None if target_contact_pos is None else np.array(target_contact_pos)
+        return total_force_on_human, tool_force, tool_force_at_target, None if target_contact_pos is None else np.array(target_contact_pos) # , tool_force_left, tool_force_right
 
 
 
@@ -282,7 +292,7 @@ class JointMotionEnv(AssistiveEnv):
             wrist_pos = self.human.get_pos_orient(self.human.right_wrist)[0]
             wrist_pos_human, _ = self.human.convert_to_realworld(wrist_pos)
  
-            human_obs = np.concatenate([np.array([self.iteration, self.phase_of_robot, self.total_force_on_human]), human_joint_angles,robot_wrist_pos, wrist_pos_human]).ravel()
+            human_obs = np.concatenate([np.array([self.iteration, self.phase_of_human, self.total_force_on_human]), human_joint_angles,robot_wrist_pos, wrist_pos_human]).ravel()
             if agent == 'human':
                 return human_obs
             #print('humNS obs space', len(human_obs))
