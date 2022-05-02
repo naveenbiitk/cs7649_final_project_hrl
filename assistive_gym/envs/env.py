@@ -43,10 +43,11 @@ class AssistiveEnv(gym.Env):
         self.obs_robot_len = obs_robot_len
         self.obs_human_len = obs_human_len if human is not None and human.controllable else 0
         self.observation_space = spaces.Box(low=np.array([-1000000000.0]*(self.obs_robot_len+self.obs_human_len), dtype=np.float32), high=np.array([1000000000.0]*(self.obs_robot_len+self.obs_human_len), dtype=np.float32), dtype=np.float32)
-        self.action_space_robot = spaces.Box(low=np.array([-1.0]*self.action_robot_len, dtype=np.float32), high=np.array([1.0]*self.action_robot_len, dtype=np.float32), dtype=np.float32)
-        # self.action_space_human = spaces.Box(low=np.array([-1.0]*self.action_human_len, dtype=np.float32), high=np.array([1.0]*self.action_human_len, dtype=np.float32), dtype=np.float32)
-        self.action_space_human = spaces.Box(low=np.array([0.0,  0.0,  5.31665415e-01,  1.34692067e-01, -9.64689935e-02, -2.42673015e-01, -1.64185327e+00,  0.0,  0.0,  0.0], dtype=np.float32),
-                                            high=np.array([0.0,  0.0, 0.0,  0.6285238 - 0.5,  -1.2184946,   0.0 + 0.25,  -2.2070327,  0.0, 0.0, 0.0], dtype=np.float32), dtype=np.float32)
+        # self.action_space_robot = spaces.Box(low=np.array([-1.0]*self.action_robot_len, dtype=np.float32), high=np.array([1.0]*self.action_robot_len, dtype=np.float32), dtype=np.float32)
+        self.action_space_robot = spaces.Box(low=np.array([-0.5]*self.action_robot_len, dtype=np.float32), high=np.array([0.5]*self.action_robot_len, dtype=np.float32), dtype=np.float32)
+        self.action_space_human = spaces.Box(low=np.array([-1.0]*self.action_human_len, dtype=np.float32), high=np.array([1.0]*self.action_human_len, dtype=np.float32), dtype=np.float32)
+        # self.action_space_human = spaces.Box(low=np.array([0.0,  0.0,  5.31665415e-01,  1.34692067e-01, -9.64689935e-02, -2.42673015e-01, -1.64185327e+00,  0.0,  0.0,  0.0], dtype=np.float32),
+                                            # high=np.array([0.0,  0.0, 0.0,  0.6285238 - 0.5,  -1.2184946,   0.0 + 0.25,  -2.2070327,  0.0, 0.0, 0.0], dtype=np.float32), dtype=np.float32)
         self.observation_space_robot = spaces.Box(low=np.array([-1000000000.0]*self.obs_robot_len, dtype=np.float32), high=np.array([1000000000.0]*self.obs_robot_len, dtype=np.float32), dtype=np.float32)
         self.observation_space_human = spaces.Box(low=np.array([-1000000000.0]*self.obs_human_len, dtype=np.float32), high=np.array([1000000000.0]*self.obs_human_len, dtype=np.float32), dtype=np.float32)
 

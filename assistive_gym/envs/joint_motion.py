@@ -96,20 +96,17 @@ class JointMotionEnv(AssistiveEnv):
         # if hit human
         if self.get_total_force()[0] > 0:
             reward_robot += -10
-        # if gripping cup and cup not at goal
-        if self.get_total_force()[1] > 4 and self.get_total_force()[1] < 7 and cup_wrist_dist < 0.1 and cup_goal_dist > 0.125:
+
+        cup_angles = Rotation.from_quat(cup_orient)
+        cup_angles = cup_angles.as_euler('xyz', degrees=True)
+
+        # if gripping cup and cup not at goal and not spilling
+        if self.get_total_force()[1] > 4 and self.get_total_force()[1] < 7 and cup_wrist_dist < 0.1 and cup_goal_dist > 0.125 and abs(cup_angles[0]) < 135:
             reward_robot += 50
 
         if cup_goal_dist < 0.125:
             reward_robot += 75
             reward_robot += cup_wrist_dist*50
-
-        cup_angles = Rotation.from_quat(cup_orient)
-        cup_angles = cup_angles.as_euler('xyz', degrees=True)
-
-        # avoiding spills
-        # if abs(cup_angles[0]) < 135:
-        #     reward_robot += -15
 
         # while self.get_total_force()[1] > 4 and self.get_total_force()[1] < 7 and cup_wrist_dist < 0.1 and cup_goal_dist > 0.1:
         #     count +=1
