@@ -101,7 +101,7 @@ class JointMotionEnv(AssistiveEnv):
         cup_angles = cup_angles.as_euler('xyz', degrees=True)
 
         # if gripping cup and cup not at goal and not spilling
-        if self.get_total_force()[1] > 4 and self.get_total_force()[1] < 7 and cup_wrist_dist < 0.1 and cup_goal_dist > 0.125 and abs(cup_angles[0]) < 135:
+        if self.get_total_force()[1] > 4 and self.get_total_force()[1] < 7 and cup_wrist_dist < 0.1 and cup_goal_dist > 0.125:
             reward_robot += 50
 
         if cup_goal_dist < 0.125:
